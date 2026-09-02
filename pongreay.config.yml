@@ -17,9 +17,9 @@ environments:
     appName: tms-uat-api
     imageName: tms-uat-api
     envFileOnServer: /etc/pongreay/tms-uat-api/app02.env
-    # Port 8090 is already bound by an unrelated pre-existing Java process
-    # on this host only — using 8091 here, matched in the syslb upstream.
-    hostPort: 8091
+    # Ports 8090/8091 are already bound by an unrelated pre-existing Java
+    # process on this host only — using 8095 here, matched in the syslb upstream.
+    hostPort: 8095
     containerPort: 8090
 
   uat-app03:

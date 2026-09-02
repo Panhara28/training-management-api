@@ -1,0 +1,362 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  TRAINER
+  PARTICIPANT
+}
+
+enum SessionStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  ATTENDED
+  ABSENT
+  DROPPED
+}
+
+enum MaterialType {
+  FILE
+  LINK
+  VIDEO
+}
+
+enum AssessmentCategory {
+  PRE
+  POST
+  EXAM
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_ANSWER
+}
+
+enum SurveyQuestionType {
+  RATING
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  OPEN_ENDED
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model Department {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  users User[]
+}
+
+model User {
+  id                Int      @id @default(autoincrement())
+  username          String   @unique
+  email             String   @unique
+  passwordHash      String
+  fullName          String
+  fullNameKh        String?
+  generalDepartment String?
+  departmentOffice  String?
+  currentRole       String?
+  phoneNumber       String?
+  role              Role     @default(PARTICIPANT)
+  departmentId      Int?
+  staffRoleId       Int?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  department   Department?        @relation(fields: [departmentId], references: [id])
+  staffRole    StaffRole?         @relation(fields: [staffRoleId], references: [id])
+  enrollments  Enrollment[]
+  certificates Certificate[]
+  sessions     TrainerOnSession[]
+  auditLogs    AuditLog[]
+}
+
+model StaffRole {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions StaffRolePermission[]
+}
+
+model PermissionModule {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  label       String
+  description String?
+
+  rolePermissions StaffRolePermission[]
+}
+
+model StaffRolePermission {
+  staffRoleId Int
+  moduleId    Int
+  create      Boolean @default(false)
+  read        Boolean @default(false)
+  update      Boolean @default(false)
+  delete      Boolean @default(false)
+
+  staffRole StaffRole        @relation(fields: [staffRoleId], references: [id], onDelete: Cascade)
+  module    PermissionModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([staffRoleId, moduleId])
+}
+
+model LoginAttempt {
+  id             Int      @id @default(autoincrement())
+  key            String   @unique
+  count          Int      @default(1)
+  firstAttemptAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String
+  detail    String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model TrainingProgram {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  title        String
+  description  String?
+  category     String
+  durationDays Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions TrainingSession[]
+}
+
+model TrainingSession {
+  id               Int           @id @default(autoincrement())
+  programId        Int
+  title            String
+  venue            String
+  hostedBy         String?
+  startDate        DateTime
+  endDate          DateTime
+  maxCapacity      Int           @default(0)
+  status           SessionStatus @default(UPCOMING)
+  publishStatus    PublishStatus @default(DRAFT)
+  surveyEnabled    Boolean       @default(false)
+  materialsEnabled Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  program         TrainingProgram         @relation(fields: [programId], references: [id])
+  trainers        TrainerOnSession[]
+  enrollments     Enrollment[]
+  certificates    Certificate[]
+  agendaItems     SessionAgendaItem[]
+  materials       SessionMaterial[]
+  assessments     SessionAssessment[]
+  surveyQuestions SessionSurveyQuestion[]
+  surveyResponses SurveyResponse[]
+}
+
+model TrainerOnSession {
+  userId     Int
+  sessionId  Int
+  assignedAt DateTime @default(now())
+
+  user    User            @relation(fields: [userId], references: [id])
+  session TrainingSession @relation(fields: [sessionId], references: [id])
+
+  @@id([userId, sessionId])
+}
+
+model Enrollment {
+  id         Int              @id @default(autoincrement())
+  userId     Int
+  sessionId  Int
+  status     EnrollmentStatus @default(ENROLLED)
+  score      Float?
+  enrolledAt DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  user                User                 @relation(fields: [userId], references: [id])
+  session             TrainingSession      @relation(fields: [sessionId], references: [id])
+  assessmentResponses AssessmentResponse[]
+  surveyResponses     SurveyResponse[]
+
+  @@unique([userId, sessionId])
+}
+
+model Certificate {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  sessionId     Int
+  certificateNo String   @unique
+  issuedAt      DateTime @default(now())
+
+  user    User            @relation(fields: [userId], references: [id])
+  session TrainingSession @relation(fields: [sessionId], references: [id])
+}
+
+model SessionAgendaItem {
+  id          Int     @id @default(autoincrement())
+  sessionId   Int
+  day         Int
+  timeFrom    String
+  timeTo      String
+  topic       String
+  facilitator String?
+  remarks     String?
+  order       Int     @default(0)
+
+  session TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model SessionMaterial {
+  id        Int          @id @default(autoincrement())
+  sessionId Int
+  type      MaterialType
+  title     String
+  value     String?
+  order     Int          @default(0)
+
+  session TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model SessionAssessment {
+  id        Int                @id @default(autoincrement())
+  sessionId Int
+  category  AssessmentCategory
+  passScore Int                @default(70)
+  enabled   Boolean            @default(false)
+
+  session   TrainingSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questions AssessmentQuestion[]
+  responses AssessmentResponse[]
+}
+
+model AssessmentQuestion {
+  id            Int          @id @default(autoincrement())
+  assessmentId  Int
+  type          QuestionType
+  text          String
+  correctOption String?
+  points        Int          @default(1)
+  order         Int          @default(0)
+
+  assessment SessionAssessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  options    QuestionOption[]
+  answers    AssessmentAnswer[]
+}
+
+model QuestionOption {
+  id         Int    @id @default(autoincrement())
+  questionId Int
+  text       String
+  order      Int    @default(0)
+
+  question AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model SessionSurveyQuestion {
+  id        Int                @id @default(autoincrement())
+  sessionId Int
+  type      SurveyQuestionType
+  text      String
+  required  Boolean            @default(false)
+  order     Int                @default(0)
+
+  session TrainingSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  options SurveyQuestionOption[]
+  answers SurveyAnswer[]
+}
+
+model SurveyQuestionOption {
+  id         Int    @id @default(autoincrement())
+  questionId Int
+  text       String
+  order      Int    @default(0)
+
+  question SessionSurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model AssessmentResponse {
+  id           Int      @id @default(autoincrement())
+  enrollmentId Int
+  assessmentId Int
+  score        Float
+  submittedAt  DateTime @default(now())
+
+  enrollment Enrollment         @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  assessment SessionAssessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    AssessmentAnswer[]
+
+  @@unique([enrollmentId, assessmentId])
+}
+
+model AssessmentAnswer {
+  id           Int     @id @default(autoincrement())
+  responseId   Int
+  questionId   Int
+  chosenOption String?
+  textAnswer   String?
+  isCorrect    Boolean @default(false)
+
+  response AssessmentResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model SurveyResponse {
+  id           Int      @id @default(autoincrement())
+  enrollmentId Int
+  sessionId    Int
+  submittedAt  DateTime @default(now())
+
+  enrollment Enrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  session    TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  answers    SurveyAnswer[]
+
+  @@unique([enrollmentId, sessionId])
+}
+
+model SurveyAnswer {
+  id         Int     @id @default(autoincrement())
+  responseId Int
+  questionId Int
+  rating     Int?
+  textAnswer String?
+  choices    String?
+
+  response SurveyResponse        @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question SessionSurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,30 @@
+project: tms-uat-api
+healthPath: /health
+
+environments:
+  uat-app01:
+    server: sysapp01@172.20.15.41
+    branch: main
+    appName: tms-uat-api
+    imageName: tms-uat-api
+    envFileOnServer: /etc/pongreay/tms-uat-api/app01.env
+    hostPort: 8090
+    containerPort: 8090
+
+  uat-app02:
+    server: sysapp02@172.20.15.42
+    branch: main
+    appName: tms-uat-api
+    imageName: tms-uat-api
+    envFileOnServer: /etc/pongreay/tms-uat-api/app02.env
+    hostPort: 8090
+    containerPort: 8090
+
+  uat-app03:
+    server: sysapp03@172.20.15.43
+    branch: main
+    appName: tms-uat-api
+    imageName: tms-uat-api
+    envFileOnServer: /etc/pongreay/tms-uat-api/app03.env
+    hostPort: 8090
+    containerPort: 8090

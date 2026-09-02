@@ -19,6 +19,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { StatsModule } from './stats/stats.module';
 import { TrainingPublicModule } from './training-public/training-public.module';
 import { ParticipantsModule } from './participants/participants.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ParticipantsModule } from './participants/participants.module';
     StatsModule,
     TrainingPublicModule,
     ParticipantsModule,
+    StorageModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

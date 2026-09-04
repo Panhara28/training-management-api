@@ -47,8 +47,8 @@ async function main() {
   }
 
   const trainerMatrix: Record<string, { create: boolean; read: boolean; update: boolean; delete: boolean }> = {
-    trainings: { create: true, read: true, update: true, delete: false },
-    schedule: { create: true, read: true, update: true, delete: false },
+    trainings: { create: false, read: true, update: false, delete: false },
+    schedule: { create: false, read: true, update: false, delete: false },
     participants: { create: false, read: true, update: false, delete: false },
     certificates: { create: false, read: true, update: false, delete: false },
     reports: { create: false, read: true, update: false, delete: false },

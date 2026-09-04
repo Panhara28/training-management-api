@@ -154,6 +154,56 @@ export class TrainingSessionsService {
     });
   }
 
+  async trainerDetail(id: number) {
+    const trainer = await this.prisma.user.findFirst({
+      where: { id, role: 'TRAINER' },
+      include: {
+        department: true,
+        staffRole: true,
+        sessions: {
+          include: {
+            session: {
+              include: {
+                program: true,
+                _count: { select: { enrollments: true } },
+              },
+            },
+          },
+          orderBy: { session: { startDate: 'desc' } },
+        },
+      },
+    });
+    if (!trainer) throw new NotFoundException({ error: 'Trainer not found.' });
+
+    const sessions = trainer.sessions.map((t) => ({
+      id: t.session.id,
+      title: t.session.title,
+      programCode: t.session.program.code,
+      programCategory: t.session.program.category,
+      venue: t.session.venue,
+      startDate: t.session.startDate,
+      endDate: t.session.endDate,
+      status: t.session.status,
+      enrolledCount: t.session._count.enrollments,
+    }));
+
+    return {
+      id: trainer.id,
+      fullName: trainer.fullName,
+      email: trainer.email,
+      isActive: trainer.isActive,
+      createdAt: trainer.createdAt,
+      departmentName: trainer.department?.name ?? null,
+      staffRoleName: trainer.staffRole?.name ?? null,
+      sessionCount: sessions.length,
+      upcomingCount: sessions.filter((s) => s.status === 'UPCOMING').length,
+      ongoingCount: sessions.filter((s) => s.status === 'ONGOING').length,
+      completedCount: sessions.filter((s) => s.status === 'COMPLETED').length,
+      totalParticipants: sessions.reduce((sum, s) => sum + s.enrolledCount, 0),
+      sessions,
+    };
+  }
+
   // ─── /api/trainings (composite) ──────────────────────────────────────────
 
   private validateTrainingBody(body: CreateTrainingDto) {

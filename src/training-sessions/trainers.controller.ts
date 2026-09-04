@@ -1,5 +1,12 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiOkResponse, ApiForbiddenResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiOkResponse,
+  ApiForbiddenResponse,
+  ApiUnauthorizedResponse,
+  ApiNotFoundResponse,
+} from '@nestjs/swagger';
 import { StaffAuthGuard } from '../common/guards/staff-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
@@ -23,5 +30,17 @@ export class TrainersController {
   @ApiOkResponse({ description: '{ id, fullName }[]' })
   list() {
     return this.sessionsService.listTrainers();
+  }
+
+  // Trainer profile + assigned sessions for the admin-facing Trainers roster
+  // detail page — gated on "users" access (not "trainings"), matching the
+  // /api/users?role=TRAINER list this page reads from.
+  @Get(':id')
+  @RequirePermission('users', 'read')
+  @ApiOperation({ summary: 'Get a trainer profile and their assigned sessions' })
+  @ApiOkResponse({ description: 'Trainer detail with sessions[]' })
+  @ApiNotFoundResponse({ description: 'Not found' })
+  detail(@Param('id', ParseIntPipe) id: number) {
+    return this.sessionsService.trainerDetail(id);
   }
 }

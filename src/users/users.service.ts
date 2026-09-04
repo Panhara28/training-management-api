@@ -26,7 +26,7 @@ export class UsersService {
         createdAt: true,
         department: { select: { id: true, name: true } },
         staffRole: { select: { id: true, name: true, slug: true } },
-        _count: { select: { enrollments: true, certificates: true } },
+        _count: { select: { enrollments: true, certificates: true, sessions: true } },
       },
       orderBy: { fullName: 'asc' },
     });

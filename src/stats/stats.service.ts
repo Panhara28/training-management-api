@@ -2,8 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedStaff } from '../common/interfaces/authenticated-staff.interface';
 
+// Dashboard stats aggregate ~10 queries and don't need per-request freshness —
+// a short cache turns repeat dashboard loads into near-instant cache hits.
+const OVERVIEW_CACHE_TTL_MS = 30_000;
+
 @Injectable()
 export class StatsService {
+  private readonly overviewCache = new Map<string, { expiresAt: number; data: unknown }>();
+
   constructor(private readonly prisma: PrismaService) {}
 
   async dashboard() {
@@ -41,6 +47,18 @@ export class StatsService {
 
   /** Trainer-scoped overview for the admin dashboard page. */
   async dashboardOverview(staff: AuthenticatedStaff) {
+    const cacheKey = staff.role === 'TRAINER' ? `trainer:${staff.userId}` : 'global';
+    const cached = this.overviewCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data;
+    }
+
+    const result = await this.computeDashboardOverview(staff);
+    this.overviewCache.set(cacheKey, { expiresAt: Date.now() + OVERVIEW_CACHE_TTL_MS, data: result });
+    return result;
+  }
+
+  private async computeDashboardOverview(staff: AuthenticatedStaff) {
     const isTrainer = staff.role === 'TRAINER';
     const assignedIds = isTrainer ? await this.getAssignedSessionIds(staff.userId) : null;
     const sessionFilter = assignedIds ? { id: { in: assignedIds } } : {};

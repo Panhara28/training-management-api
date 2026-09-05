@@ -9,6 +9,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import compression from 'compression';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -23,6 +24,7 @@ async function bootstrap() {
   );
   app.use(cookieParser());
   app.use(helmet());
+  app.use(compression());
 
   const corsOrigins = (process.env.CORS_ORIGIN ?? '')
     .split(',')

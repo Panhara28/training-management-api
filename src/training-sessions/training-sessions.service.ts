@@ -47,7 +47,7 @@ export class TrainingSessionsService {
     return this.prisma.trainingSession.findMany({
       where: status ? { status: status as SessionStatus } : {},
       include: {
-        program: { select: { code: true, title: true, category: true } },
+        program: { select: { code: true, title: true, category: true, durationDays: true } },
         trainers: { include: { user: { select: { id: true, fullName: true } } } },
         _count: { select: { enrollments: true, certificates: true } },
       },

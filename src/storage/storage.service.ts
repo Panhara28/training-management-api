@@ -1,5 +1,5 @@
 import { BadGatewayException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { createHash, createHmac, randomUUID } from 'crypto';
 
 type UploadableFile = {
   buffer: Buffer;
@@ -14,6 +14,8 @@ type MocUpload = {
   storedFilename: string;
   type: string;
 };
+
+const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
 
 @Injectable()
 export class StorageService {
@@ -30,11 +32,25 @@ export class StorageService {
     return { baseUrl, accessKey, secretKey, bucketSlug };
   }
 
-  private authHeaders(config: { accessKey: string; secretKey: string; bucketSlug: string }) {
+  // MOC Object Storage's UAT/prod deployments require the signed API scheme
+  // (simple x-access-key/x-secret-key auth is disabled server-side). The
+  // canonical string and HMAC mirror the API's own verification logic:
+  // `${method}\n${pathname}\n${search}\n${timestamp}\n${payloadHash}`.
+  private signedHeaders(
+    config: { accessKey: string; secretKey: string },
+    method: string,
+    url: URL,
+    payloadHash: string,
+  ) {
+    const timestamp = new Date().toISOString();
+    const canonical = `${method}\n${url.pathname}\n${url.search}\n${timestamp}\n${payloadHash}`;
+    const signature = createHmac('sha256', config.secretKey).update(canonical).digest('hex');
+
     return {
-      'x-access-key': config.accessKey,
-      'x-secret-key': config.secretKey,
-      'x-bucket-slug': config.bucketSlug,
+      'x-api-key': config.accessKey,
+      'x-api-signature': signature,
+      'x-api-timestamp': timestamp,
+      'x-api-body-hash': payloadHash,
     };
   }
 
@@ -54,10 +70,13 @@ export class StorageService {
       Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8'),
     ]);
 
+    // Multipart bodies are re-serialized by multer server-side, so their raw
+    // bytes never match a client-computed hash — the API explicitly allows
+    // UNSIGNED-PAYLOAD for multipart requests instead.
     const response = await this.safeFetch(requestUrl, {
       method: 'POST',
       headers: {
-        ...this.authHeaders(config),
+        ...this.signedHeaders(config, 'POST', requestUrl, UNSIGNED_PAYLOAD),
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
         'Content-Length': String(body.length),
       },
@@ -89,9 +108,11 @@ export class StorageService {
     requestUrl.searchParams.set('mediaSlug', slug);
     requestUrl.searchParams.set('inline', String(inline));
 
+    const emptyBodyHash = createHash('sha256').update(Buffer.alloc(0)).digest('hex');
+
     const response = await this.safeFetch(requestUrl, {
       method: 'GET',
-      headers: this.authHeaders(config),
+      headers: this.signedHeaders(config, 'GET', requestUrl, emptyBodyHash),
     });
 
     if (response.status === 404) {

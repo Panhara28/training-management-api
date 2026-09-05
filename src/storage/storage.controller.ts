@@ -84,6 +84,12 @@ export class StorageController {
     if (contentDisposition) res.setHeader('Content-Disposition', contentDisposition);
     if (contentLength) res.setHeader('Content-Length', contentLength);
 
+    // Helmet's default CSP (object-src 'none') applies globally, but that
+    // breaks Chrome's built-in PDF viewer when this response is framed for
+    // inline preview. This route only ever serves raw file bytes — no
+    // script execution risk — so the page-level CSP doesn't apply here.
+    res.removeHeader('Content-Security-Policy');
+
     if (!upstream.body) {
       res.end();
       return;

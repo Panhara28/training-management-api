@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -14,7 +14,8 @@ export class HealthController {
       await this.prisma.$queryRaw`SELECT 1`;
       return { status: 'ok', timestamp: new Date().toISOString() };
     } catch {
-      return { status: 'error' };
+      // 503 so load balancers and deploy health checks take this instance out.
+      throw new ServiceUnavailableException({ status: 'error', error: 'Database unreachable' });
     }
   }
 }

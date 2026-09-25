@@ -30,3 +30,33 @@ environments:
     envFileOnServer: /etc/pongreay/tms-uat-api/app03.env
     hostPort: 8090
     containerPort: 8090
+
+  # ── Production (tms.moc.gov.kh) — deploy with infra/deploy-production.sh ──
+  # Same image/env path/ports on all three; only the server differs.
+  production-app01:
+    server: panhara@172.20.15.56
+    branch: main
+    appName: tms-api
+    imageName: tms-api
+    envFileOnServer: /etc/pongreay/tms-api/production.env
+    hostPort: 8090
+    containerPort: 8090
+
+  production-app02:
+    server: panhara@172.20.15.57
+    branch: main
+    appName: tms-api
+    imageName: tms-api
+    envFileOnServer: /etc/pongreay/tms-api/production.env
+    hostPort: 8090
+    containerPort: 8090
+
+  production-app03:
+    server: panhara@172.20.15.58
+    branch: main
+    appName: tms-api
+    imageName: tms-api
+    envFileOnServer: /etc/pongreay/tms-api/production.env
+    hostPort: 8090
+    containerPort: 8090
+

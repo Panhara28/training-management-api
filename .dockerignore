@@ -1,8 +1,13 @@
-node_modules
-dist
-.git
+# Secrets never enter the build context (Pongreay requires these three lines).
 .env
 .env.*
-*.log
+!.env.example
+
+node_modules
+dist
 coverage
+test
+infra
+.git
+*.log
 .DS_Store

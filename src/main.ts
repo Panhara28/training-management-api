@@ -16,6 +16,18 @@ import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter'
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Behind the load balancer (and the frontend's /api relay): trust
+  // X-Forwarded-For only from these addresses, so req.ip is the real client
+  // (login rate limiting and audit logs depend on it).
+  const trustedProxies = (process.env.TRUST_PROXY ?? '')
+    .split(',')
+    .map((ip) => ip.trim())
+    .filter(Boolean);
+  if (trustedProxies.length > 0) app.set('trust proxy', trustedProxies);
+
+  // Close the HTTP server and Prisma cleanly on SIGTERM (docker stop / deploys).
+  app.enableShutdownHooks();
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -92,10 +92,16 @@ export class UsersService {
     return user;
   }
 
-  async update(id: number, body: UpdateUserDto) {
+  async update(id: number, body: UpdateUserDto, actingUserId: number) {
     if (Object.keys(body).length === 0) {
       throw new BadRequestException({ error: 'Nothing to update.' });
     }
+    const deactivating = body.isActive === false;
+    const demoting = body.role !== undefined && body.role !== 'ADMIN';
+    if (id === actingUserId && (deactivating || demoting)) {
+      throw new BadRequestException({ error: 'You cannot deactivate or change the role of your own account.' });
+    }
+    if (deactivating || demoting) await this.assertNotLastActiveAdmin(id);
 
     const user = await this.prisma.user.update({
       where: { id },
@@ -129,8 +135,23 @@ export class UsersService {
     return user;
   }
 
-  async remove(id: number) {
+  async remove(id: number, actingUserId: number) {
+    if (id === actingUserId) {
+      throw new BadRequestException({ error: 'You cannot delete your own account.' });
+    }
+    await this.assertNotLastActiveAdmin(id);
     await this.prisma.user.delete({ where: { id } });
     return { ok: true };
+  }
+
+  // At least one active ADMIN must always remain, or nobody can manage the system.
+  private async assertNotLastActiveAdmin(id: number) {
+    const user = await this.prisma.user.findUnique({ where: { id }, select: { role: true, isActive: true } });
+    if (!user) throw new NotFoundException({ error: 'Not found' });
+    if (user.role !== 'ADMIN' || !user.isActive) return;
+    const activeAdmins = await this.prisma.user.count({ where: { role: 'ADMIN', isActive: true } });
+    if (activeAdmins <= 1) {
+      throw new BadRequestException({ error: 'At least one active administrator is required.' });
+    }
   }
 }

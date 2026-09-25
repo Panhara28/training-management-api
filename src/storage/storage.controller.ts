@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -57,7 +58,7 @@ export class StorageController {
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   async upload(@UploadedFile() file: UploadedMulterFile | undefined) {
     if (!file) {
-      return { error: 'A file is required.' };
+      throw new BadRequestException({ error: 'A file is required.' });
     }
     const uploaded = await this.storageService.uploadFile({
       buffer: file.buffer,

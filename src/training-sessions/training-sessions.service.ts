@@ -547,6 +547,9 @@ export class TrainingSessionsService {
   // ─── /api/trainings/:id/analytics ────────────────────────────────────────
 
   async analytics(sessionId: number) {
+    const exists = await this.prisma.trainingSession.count({ where: { id: sessionId } });
+    if (!exists) throw new NotFoundException({ error: 'Training not found.' });
+
     const [enrollments, assessments, surveyQuestions, surveyResponses] = await Promise.all([
       this.prisma.enrollment.findMany({
         where: { sessionId },
@@ -709,6 +712,10 @@ export class TrainingSessionsService {
   // ─── /api/trainings/:id/seed-analytics (dev/demo helper) ────────────────
 
   async seedAnalytics(sessionId: number) {
+    // Demo helper that writes fake responses — never available unless explicitly enabled.
+    if (process.env.ENABLE_DEMO_TOOLS !== 'true') {
+      throw new NotFoundException({ error: 'Not found' });
+    }
     const session = await this.prisma.trainingSession.findUnique({
       where: { id: sessionId },
       include: {

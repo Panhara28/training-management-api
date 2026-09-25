@@ -12,6 +12,8 @@ import {
 import { StaffAuthGuard } from '../common/guards/staff-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
+import { CurrentStaff } from '../common/decorators/current-staff.decorator';
+import type { AuthenticatedStaff } from '../common/interfaces/authenticated-staff.interface';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -54,15 +56,19 @@ export class UsersController {
   @RequirePermission('users', 'update')
   @ApiOperation({ summary: 'Update a staff user' })
   @ApiOkResponse({ description: 'User' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateUserDto) {
-    return this.usersService.update(id, body);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: UpdateUserDto,
+    @CurrentStaff() staff: AuthenticatedStaff,
+  ) {
+    return this.usersService.update(id, body, staff.userId);
   }
 
   @Delete(':id')
   @RequirePermission('users', 'delete')
   @ApiOperation({ summary: 'Delete a staff user' })
   @ApiOkResponse({ description: '{ ok: true }' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentStaff() staff: AuthenticatedStaff) {
+    return this.usersService.remove(id, staff.userId);
   }
 }

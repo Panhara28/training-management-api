@@ -27,7 +27,14 @@ export class EnrollmentsService {
       include: { _count: { select: { enrollments: true } } },
     });
     if (!session) throw new NotFoundException({ error: 'Session not found' });
-    if (session._count.enrollments >= session.maxCapacity) {
+    const user = await this.prisma.user.findUnique({ where: { id: Number(data.userId) }, select: { id: true } });
+    if (!user) throw new NotFoundException({ error: 'Participant not found' });
+    const existing = await this.prisma.enrollment.findUnique({
+      where: { userId_sessionId: { userId: user.id, sessionId: session.id } },
+    });
+    if (existing) throw new ConflictException({ error: 'Participant is already enrolled in this session' });
+    // maxCapacity 0 means no limit — same rule as public registration.
+    if (session.maxCapacity > 0 && session._count.enrollments >= session.maxCapacity) {
       throw new ConflictException({ error: 'Session is at full capacity' });
     }
 

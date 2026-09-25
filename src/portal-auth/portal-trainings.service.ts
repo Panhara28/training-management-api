@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { checkAndIssueCertificateIfEligible } from '../lib/certificate-eligibility';
-import { CertificateDocumentService } from '../documents/certificate-document.service';
+import { CERTIFICATE_DOCUMENT_INCLUDE, CertificateDocumentService } from '../documents/certificate-document.service';
 import { SubmitAssessmentDto } from './dto/submit-assessment.dto';
 import { SubmitSurveyDto } from './dto/submit-survey.dto';
 
@@ -297,18 +297,15 @@ export class PortalTrainingsService {
     }));
   }
 
-  async certificateDocument(userId: number, certificateId: number, origin: string): Promise<Buffer> {
+  async certificateDocument(userId: number, certificateId: number): Promise<Buffer> {
     const certificate = await this.prisma.certificate.findUnique({
       where: { id: certificateId },
-      include: {
-        user: { select: { fullName: true } },
-        session: { select: { title: true, venue: true, program: { select: { durationDays: true } } } },
-      },
+      include: CERTIFICATE_DOCUMENT_INCLUDE,
     });
     if (!certificate) throw new NotFoundException({ error: 'Certificate not found.' });
     if (certificate.userId !== userId) throw new ForbiddenException({ error: 'Forbidden' });
 
-    const data = this.certificateDocumentService.buildCertificateData(certificate, origin);
+    const data = this.certificateDocumentService.buildCertificateData(certificate);
     return this.certificateDocumentService.buildCertificatePdf(data);
   }
 

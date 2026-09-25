@@ -221,6 +221,15 @@ export class TrainingSessionsService {
     return { start, end };
   }
 
+  private certificateFields(body: CreateTrainingDto) {
+    return {
+      titleKh: body.trainingTitleKh?.trim() || null,
+      batchNo: body.batchNo ?? null,
+      organizersKh: body.organizersKh?.trim() || null,
+      organizersEn: body.organizersEn?.trim() || null,
+    };
+  }
+
   async createTraining(body: CreateTrainingDto) {
     const { start, end } = this.validateTrainingBody(body);
     const durationDays = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
@@ -247,6 +256,7 @@ export class TrainingSessionsService {
         data: {
           programId: program.id,
           title: body.trainingTitle,
+          ...this.certificateFields(body),
           venue: body.venue,
           hostedBy: body.hostedBy ?? null,
           startDate: start,
@@ -362,6 +372,10 @@ export class TrainingSessionsService {
       programCode: session.program.code,
       category: session.program.category,
       trainingTitle: session.title,
+      trainingTitleKh: session.titleKh ?? '',
+      batchNo: session.batchNo,
+      organizersKh: session.organizersKh ?? '',
+      organizersEn: session.organizersEn ?? '',
       description: session.program.description ?? '',
       startDate: session.startDate.toISOString().slice(0, 10),
       endDate: session.endDate.toISOString().slice(0, 10),
@@ -425,6 +439,7 @@ export class TrainingSessionsService {
         where: { id },
         data: {
           title: body.trainingTitle,
+          ...this.certificateFields(body),
           venue: body.venue,
           hostedBy: body.hostedBy ?? null,
           startDate: start,

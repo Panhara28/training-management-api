@@ -32,3 +32,29 @@ export function formatKhmerTime(date: Date): string {
   const displayHour = hours % 12 === 0 ? 12 : hours % 12;
   return `${toKhmerNumeral(displayHour)}:${toKhmerNumeral(String(minutes).padStart(2, '0'))} នាទី${period}`;
 }
+
+/** English ordinal suffix: 1 → "st", 2 → "nd", 3 → "rd", 11 → "th", 21 → "st" */
+export function englishOrdinalSuffix(n: number): string {
+  const lastTwo = n % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return 'th';
+  return ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+}
+
+const KHMER_ZODIAC_ANIMALS = ['ជូត', 'ឆ្លូវ', 'ខាល', 'ថោះ', 'រោង', 'ម្សាញ់', 'មមី', 'មមែ', 'វក', 'រកា', 'ច', 'កុរ'];
+
+const KHMER_SAK = [
+  'ឯកស័ក', 'ទោស័ក', 'ត្រីស័ក', 'ចត្វាស័ក', 'បញ្ចស័ក',
+  'ឆស័ក', 'សប្តស័ក', 'អដ្ឋស័ក', 'នព្វស័ក', 'សំរឹទ្ធិស័ក',
+];
+
+/**
+ * Khmer lunar year name, e.g. 2026 → "មមី អដ្ឋស័ក". The lunar year turns over
+ * at Khmer New Year (mid-April), so earlier dates belong to the previous year.
+ */
+export function khmerLunarYearName(date: Date): string {
+  const beforeNewYear = date.getMonth() < 3 || (date.getMonth() === 3 && date.getDate() < 14);
+  const year = date.getFullYear() - (beforeNewYear ? 1 : 0);
+  const animal = KHMER_ZODIAC_ANIMALS[(((year - 2020) % 12) + 12) % 12];
+  const sak = KHMER_SAK[(((year - 2019) % 10) + 10) % 10];
+  return `${animal} ${sak}`;
+}

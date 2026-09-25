@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatCertificateNo } from '../lib/certificate-eligibility';
-import { CertificateDocumentService } from '../documents/certificate-document.service';
+import { CERTIFICATE_DOCUMENT_INCLUDE, CertificateDocumentService } from '../documents/certificate-document.service';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 
 @Injectable()
@@ -71,21 +71,33 @@ export class CertificatesService {
     };
   }
 
-  async document(id: number, origin: string): Promise<Buffer> {
-    const certificate = await this.getForDocument(id);
-    const data = this.documentService.buildCertificateData(certificate, origin);
-    return this.documentService.buildCertificatePdf(data);
+  async document(id: number): Promise<Buffer> {
+    return this.documentService.buildCertificatePdf(await this.documentData(id));
   }
 
-  async getForDocument(id: number) {
+  async preview(id: number): Promise<Buffer> {
+    return this.documentService.buildCertificateJpeg(await this.documentData(id));
+  }
+
+  private async documentData(id: number) {
     const certificate = await this.prisma.certificate.findUnique({
       where: { id },
-      include: {
-        user: { select: { fullName: true } },
-        session: { select: { title: true, venue: true, program: { select: { durationDays: true } } } },
-      },
+      include: CERTIFICATE_DOCUMENT_INCLUDE,
     });
     if (!certificate) throw new NotFoundException({ error: 'Certificate not found.' });
-    return certificate;
+    return this.documentService.buildCertificateData(certificate);
+  }
+
+  // Every issued certificate of one training batch, one page each.
+  async sessionDocument(sessionId: number): Promise<Buffer> {
+    const certificates = await this.prisma.certificate.findMany({
+      where: { sessionId },
+      include: CERTIFICATE_DOCUMENT_INCLUDE,
+      orderBy: { certificateNo: 'asc' },
+    });
+    if (certificates.length === 0) {
+      throw new NotFoundException({ error: 'No certificates have been issued for this training yet.' });
+    }
+    return this.documentService.buildCertificatePdf(certificates.map((c) => this.documentService.buildCertificateData(c)));
   }
 }

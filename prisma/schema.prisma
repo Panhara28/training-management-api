@@ -166,6 +166,10 @@ model TrainingSession {
   id               Int           @id @default(autoincrement())
   programId        Int
   title            String
+  titleKh          String?
+  batchNo          Int?
+  organizersKh     String?       @db.Text
+  organizersEn     String?       @db.Text
   venue            String
   hostedBy         String?
   startDate        DateTime

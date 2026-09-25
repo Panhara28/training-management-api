@@ -143,6 +143,28 @@ export class CreateTrainingDto {
   @IsNotEmpty()
   trainingTitle!: string;
 
+  @ApiPropertyOptional({ description: 'Khmer course title (used on the certificate)' })
+  @IsOptional()
+  @IsString()
+  trainingTitleKh?: string;
+
+  @ApiPropertyOptional({ example: 5, description: 'Batch number (វគ្គទី)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  batchNo?: number | null;
+
+  @ApiPropertyOptional({ description: 'Organizers, Khmer (certificate)' })
+  @IsOptional()
+  @IsString()
+  organizersKh?: string;
+
+  @ApiPropertyOptional({ description: 'Organizers, English (certificate)' })
+  @IsOptional()
+  @IsString()
+  organizersEn?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

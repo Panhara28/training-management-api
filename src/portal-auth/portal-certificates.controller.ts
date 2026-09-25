@@ -1,6 +1,6 @@
-import { Controller, Get, Param, ParseIntPipe, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiCookieAuth } from '@nestjs/swagger';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { PortalAuthGuard } from '../common/guards/portal-auth.guard';
 import { CurrentParticipant } from '../common/decorators/current-participant.decorator';
 import type { User } from '@prisma/client';
@@ -25,11 +25,9 @@ export class PortalCertificatesController {
   async document(
     @CurrentParticipant() participant: User,
     @Param('id', ParseIntPipe) id: number,
-    @Req() req: Request,
     @Res() res: Response,
   ) {
-    const origin = `${req.protocol}://${req.get('host')}`;
-    const pdf = await this.portalTrainingsService.certificateDocument(participant.id, id, origin);
+    const pdf = await this.portalTrainingsService.certificateDocument(participant.id, id);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="certificate-${id}.pdf"`);
     res.send(pdf);

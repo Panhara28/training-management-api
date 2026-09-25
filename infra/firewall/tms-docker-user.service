@@ -1,0 +1,14 @@
+[Unit]
+Description=TMS: restrict Docker-published app ports to the load balancer
+# Re-applied whenever Docker starts or restarts (PartOf + WantedBy docker).
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/tms-docker-user.sh
+
+[Install]
+WantedBy=docker.service multi-user.target

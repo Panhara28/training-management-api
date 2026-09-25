@@ -1,0 +1,11 @@
+[Unit]
+Description=TMS nightly MySQL backup (mysqldump)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/tms/mysql/backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

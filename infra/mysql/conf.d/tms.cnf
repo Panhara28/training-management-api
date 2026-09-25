@@ -1,0 +1,41 @@
+# TMS MySQL 8.4 tuning — dedicated DB server: 8 vCPU, 16 GB RAM, HDD storage.
+[mysqld]
+# Network: private IP + loopback only; X Protocol off (only 3306 listens).
+bind-address           = 172.20.15.59,127.0.0.1
+port                   = 3306
+mysqlx                 = OFF
+skip-name-resolve      = ON
+local_infile           = OFF
+
+# Match the app/dev database (Prisma stores DateTime in UTC).
+character-set-server   = utf8mb4
+collation-server       = utf8mb4_0900_ai_ci
+default-time-zone      = '+00:00'
+
+# Connections: 3 app servers x ~20 pooled connections = 60, leaves headroom.
+max_connections        = 200
+max_connect_errors     = 10000
+
+# Memory (~65% of RAM for the buffer pool on a dedicated host).
+innodb_buffer_pool_size      = 10G
+innodb_buffer_pool_instances = 8
+tmp_table_size               = 64M
+max_heap_table_size          = 64M
+table_open_cache             = 4000
+
+# InnoDB I/O tuned for HDD (rotational) storage.
+innodb_flush_method          = O_DIRECT
+innodb_io_capacity           = 200
+innodb_io_capacity_max       = 400
+innodb_flush_neighbors       = 1
+innodb_redo_log_capacity     = 2G
+innodb_file_per_table        = ON
+
+# Binary log kept 7 days (point-in-time recovery between nightly dumps).
+binlog_expire_logs_seconds   = 604800
+
+# Logging.
+log_error              = /var/log/mysql/error.log
+slow_query_log         = ON
+slow_query_log_file    = /var/log/mysql/slow.log
+long_query_time        = 0.5

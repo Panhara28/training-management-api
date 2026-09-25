@@ -1,0 +1,37 @@
+# MySQL 8.4 LTS for TMS — installed to /srv/tms/mysql/compose.yml on tmsdb.
+# Host networking so UFW rules apply (Docker-published ports would bypass UFW).
+name: tms-mysql
+
+services:
+  mysql:
+    image: mysql:8.4.11
+    container_name: tms-mysql
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      # root may only log in from inside tmsdb (never over the network).
+      MYSQL_ROOT_HOST: localhost
+      MYSQL_DATABASE: tms
+      TZ: UTC
+    secrets:
+      - mysql_root_password
+    volumes:
+      - /srv/tms/mysql/data:/var/lib/mysql
+      - /srv/tms/mysql/conf.d:/etc/mysql/conf.d:ro
+      - /srv/tms/mysql/logs:/var/log/mysql
+      - /srv/tms/mysql/secrets/backup_password:/run/tms-backup/password:ro
+    ulimits:
+      nofile: { soft: 65535, hard: 65535 }
+    stop_grace_period: 120s
+    healthcheck:
+      # Socket ping inside the container; needs no password.
+      test: ["CMD", "mysqladmin", "ping", "--silent", "--socket=/var/run/mysqld/mysqld.sock"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+secrets:
+  mysql_root_password:
+    file: /srv/tms/mysql/secrets/root_password

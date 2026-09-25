@@ -77,10 +77,15 @@ async function main() {
   // ── Users ───────────────────────────────────────────────────────────────────
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
-    update: { passwordHash: DEMO_PASSWORD_HASH, staffRoleId: adminStaffRole.id, isActive: true },
+    update: {
+      email: 'chhouk.titpanhara@moc.gov.kh',
+      passwordHash: DEMO_PASSWORD_HASH,
+      staffRoleId: adminStaffRole.id,
+      isActive: true,
+    },
     create: {
       username: 'admin',
-      email: 'admin@ttri.gov.kh',
+      email: 'chhouk.titpanhara@moc.gov.kh',
       passwordHash: DEMO_PASSWORD_HASH,
       fullName: 'System Administrator',
       role: Role.ADMIN,

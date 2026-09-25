@@ -11,9 +11,12 @@ import {
   REFRESH_TTL_SECONDS,
   verifyAccessToken,
 } from '../lib/staff-jwt';
+import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from '../lib/portal-session';
+import { createPkceChallenge, getMocOAuthClient, PKCE_COOKIE, PKCE_COOKIE_PATH, PKCE_TTL_SECONDS } from '../lib/moc-oauth';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { MocOauthCallbackDto } from './dto/moc-oauth-callback.dto';
 
 @ApiTags('Auth')
 @Controller('api/auth')
@@ -42,6 +45,52 @@ export class AuthController {
     res.cookie(REFRESH_COOKIE, refreshToken, this.cookieOptions(REFRESH_TTL_SECONDS));
 
     return user;
+  }
+
+  // AAS login, step 1 — the browser navigates here directly (not fetch) and
+  // is 302'd on to the AAS identity provider.
+  @Get('moc-oauth/login')
+  @ApiOperation({ summary: 'Start AAS (MOC OAuth) login — redirects to AAS' })
+  async mocOauthLogin(@Res() res: Response) {
+    try {
+      const { state, codeChallenge, pkceCookie } = createPkceChallenge();
+      const result = await getMocOAuthClient().getLoginToken({ state, codeChallenge, codeChallengeMethod: 'S256' });
+      if (!result.success) throw new Error(result.error?.message || 'Unable to reach AAS login');
+
+      res.cookie(PKCE_COOKIE, pkceCookie, { ...this.cookieOptions(PKCE_TTL_SECONDS), path: PKCE_COOKIE_PATH });
+      return res.redirect(result.data.redirectUri);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to reach AAS login';
+      const params = new URLSearchParams({ error: 'aas_unavailable', error_description: message });
+      return res.redirect(`/auth/callback?${params.toString()}`);
+    }
+  }
+
+  // AAS login, step 2 — the frontend /auth/callback page POSTs the
+  // { code, state } AAS redirected back with.
+  @Post('moc-oauth/callback')
+  @ApiOperation({ summary: 'Complete AAS (MOC OAuth) login' })
+  @ApiOkResponse({ description: '{ user }' })
+  async mocOauthCallback(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Body() body: MocOauthCallbackDto,
+  ) {
+    const ip = req.ip ?? req.socket?.remoteAddress ?? 'unknown';
+    const pkceCookie = (req as Request & { cookies?: Record<string, string> }).cookies?.[PKCE_COOKIE];
+    // One-time use regardless of outcome.
+    res.cookie(PKCE_COOKIE, '', { ...this.cookieOptions(0), path: PKCE_COOKIE_PATH });
+
+    const result = await this.authService.mocOauthLogin(body.code, body.state, pkceCookie, ip);
+
+    if (result.kind === 'portal') {
+      res.cookie(SESSION_COOKIE, result.portalToken, this.cookieOptions(SESSION_MAX_AGE_SECONDS));
+    } else {
+      res.cookie(ACCESS_COOKIE, result.accessToken, this.cookieOptions(ACCESS_TTL_SECONDS));
+      res.cookie(REFRESH_COOKIE, result.refreshToken, this.cookieOptions(REFRESH_TTL_SECONDS));
+    }
+
+    return result.user;
   }
 
   @Post('logout')

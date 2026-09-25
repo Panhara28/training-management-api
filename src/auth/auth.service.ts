@@ -1,9 +1,17 @@
-import { BadRequestException, HttpException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/staff-jwt';
+import { createSessionToken } from '../lib/portal-session';
 import { checkRateLimit, recordFailedAttempt, clearAttempts } from '../lib/rate-limit';
+import { getMocOAuthClient, MOC_EMAIL_DOMAIN, resolveCodeVerifier } from '../lib/moc-oauth';
 import type { AuthenticatedStaff } from '../common/interfaces/authenticated-staff.interface';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
@@ -35,6 +43,52 @@ export class AuthService {
       accessToken: signAccessToken(user.id, user.staffRoleId),
       refreshToken: signRefreshToken(user.id),
       user: { id: user.id, username: user.username, fullName: user.fullName, role: user.role },
+    };
+  }
+
+  // AAS login, step 2 — exchange the code AAS gave the browser for a local
+  // session. Any existing, active user (admin, trainer or participant) with a
+  // @moc.gov.kh email matches; participants get a portal session instead of a
+  // staff one.
+  async mocOauthLogin(code: string, state: string, pkceCookie: string | undefined, ip: string) {
+    const codeVerifier = resolveCodeVerifier(state, pkceCookie);
+    if (!codeVerifier) {
+      throw new UnauthorizedException({ error: 'Invalid or expired login session. Please try again.' });
+    }
+
+    const result = await getMocOAuthClient().validateAuthorizationCode({ code, codeVerifier });
+    if (!result.success || !result.data.isValid || !result.data.payload) {
+      await this.audit.log({ userId: null, action: 'auth.moc_oauth.failed', ipAddress: ip });
+      throw new UnauthorizedException({ error: 'AAS authentication failed. Please try again.' });
+    }
+
+    const email = result.data.payload.email?.toLowerCase();
+    if (!email || !email.endsWith(MOC_EMAIL_DOMAIN)) {
+      throw new ForbiddenException({ error: `Only ${MOC_EMAIL_DOMAIN} accounts can sign in with AAS.` });
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      await this.audit.log({ userId: null, action: 'auth.moc_oauth.failed', ipAddress: ip });
+      throw new ForbiddenException({
+        error: 'No local account found for this email. Ask an admin to create your account first.',
+      });
+    }
+    if (!user.isActive) {
+      throw new ForbiddenException({ error: 'User is not active.' });
+    }
+
+    await this.audit.log({ userId: user.id, action: 'auth.moc_oauth.success', ipAddress: ip });
+
+    const publicUser = { id: user.id, username: user.username, fullName: user.fullName, role: user.role };
+    if (user.role === 'PARTICIPANT') {
+      return { kind: 'portal' as const, portalToken: createSessionToken(user.id, user.role), user: publicUser };
+    }
+    return {
+      kind: 'staff' as const,
+      accessToken: signAccessToken(user.id, user.staffRoleId),
+      refreshToken: signRefreshToken(user.id),
+      user: publicUser,
     };
   }
 

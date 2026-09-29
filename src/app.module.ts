@@ -24,7 +24,10 @@ import { StorageModule } from './storage/storage.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    // Per client IP (real visitor IP via TRUST_PROXY). Generous because whole
+    // offices often share one public IP; nginx caps each IP at 20 req/s and
+    // login routes have their own strict limits (nginx 10/min + login lockout).
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 1000 }]),
     PrismaModule,
     CommonModule,
     AuditModule,

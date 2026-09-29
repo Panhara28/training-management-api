@@ -62,10 +62,7 @@ log "ufw"
 ufw default deny incoming >/dev/null
 ufw default allow outgoing >/dev/null
 ufw allow 22/tcp comment 'ssh (key-only; brute force handled by fail2ban)' >/dev/null
-if [[ "${ROLE}" == "lb" ]]; then
-  ufw allow 80/tcp comment 'http' >/dev/null
-  ufw allow 443/tcp comment 'https' >/dev/null
-fi
+# lb: ports 80/443 are opened by phase6-lb.sh, for Cloudflare's ranges only.
 ufw --force enable >/dev/null
 
 # ── fail2ban for sshd ────────────────────────────────────────────────────────

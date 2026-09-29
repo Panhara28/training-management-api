@@ -1,0 +1,11 @@
+[Unit]
+Description=TMS: renew Let's Encrypt certificates and reload nginx
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker run --rm -v /srv/tms/letsencrypt:/etc/letsencrypt -v /srv/tms/nginx/acme:/var/www/acme certbot/certbot:v5.8.0 renew --webroot -w /var/www/acme --non-interactive --quiet
+# Reload only if the config still validates (picks up a renewed certificate).
+ExecStartPost=/usr/bin/docker exec tms-nginx nginx -t -q
+ExecStartPost=/usr/bin/docker exec tms-nginx nginx -s reload

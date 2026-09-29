@@ -1,0 +1,10 @@
+[Unit]
+Description=TMS: try certificate renewal twice a day (certbot only renews when due)
+
+[Timer]
+OnCalendar=*-*-* 03,15:30:00
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

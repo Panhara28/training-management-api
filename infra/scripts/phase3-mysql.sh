@@ -92,4 +92,7 @@ log "nightly backup timer"
 systemctl daemon-reload
 systemctl enable --now tms-mysql-backup.timer >/dev/null
 
+log "boot safety net"
+bash "${SRC}/scripts/install-ensure-up.sh" "${SRC}" "compose:${BASE}/compose.yml"
+
 log "phase 3 done on $(hostname)"

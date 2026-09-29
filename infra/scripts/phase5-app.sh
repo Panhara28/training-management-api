@@ -83,4 +83,7 @@ for k in MOC_OAUTH_BASE_URL MOC_OAUTH_CLIENT_ID MOC_OAUTH_CLIENT_SECRET \
   grep -q "^${k}=." "${API_ENV}" && echo "  ok      ${k}" || echo "  MISSING ${k}"
 done
 
+log "boot safety net"
+bash "${SRC}/scripts/install-ensure-up.sh" "${SRC}" "containers:tms-api,tms-web"
+
 log "phase 5 app prep done on $(hostname)"

@@ -91,4 +91,7 @@ install -m 644 "${SRC}/systemd/tms-cert-renew.timer"   /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now tms-cert-renew.timer >/dev/null
 
+log "boot safety net"
+bash "${SRC}/scripts/install-ensure-up.sh" "${SRC}" "compose:${BASE}/compose.yml"
+
 log "phase 6 done on $(hostname)"

@@ -1,0 +1,15 @@
+[Unit]
+# Instance name is the target, escaped by systemd-escape, e.g.
+#   tms-ensure-up@compose:-srv-tms-nginx-compose.yml.service
+Description=TMS: ensure containers are running after boot (%I)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/tms-ensure-up.sh %I
+
+[Install]
+WantedBy=multi-user.target

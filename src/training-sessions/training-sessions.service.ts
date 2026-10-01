@@ -74,6 +74,8 @@ export class TrainingSessionsService {
       where: { id },
       include: {
         program: true,
+        // The public registration page reads the seat count from here.
+        _count: { select: { enrollments: true } },
         trainers: { include: { user: { select: { id: true, fullName: true, email: true } } } },
         enrollments: {
           include: {
@@ -395,6 +397,9 @@ export class TrainingSessionsService {
         value: m.value ?? '',
       })),
       assessments: session.assessments.map((a) => ({
+        // id/enabled are for the detail page's enable switch; the edit form ignores them.
+        id: a.id,
+        enabled: a.enabled,
         category: a.category.toLowerCase(),
         passScore: a.passScore,
         questions: a.questions.map((q) => ({
@@ -476,10 +481,17 @@ export class TrainingSessionsService {
         });
       }
 
+      // Assessments are re-created from the form; keep each one open if it was.
+      const wasEnabled = new Set(
+        (await tx.sessionAssessment.findMany({ where: { sessionId: id, enabled: true }, select: { category: true } })).map(
+          (a) => a.category,
+        ),
+      );
       await tx.sessionAssessment.deleteMany({ where: { sessionId: id } });
       for (const assess of body.assessments ?? []) {
+        const category = ASSESS_CATEGORY[assess.category];
         const dbAssess = await tx.sessionAssessment.create({
-          data: { sessionId: id, category: ASSESS_CATEGORY[assess.category], passScore: assess.passScore },
+          data: { sessionId: id, category, passScore: assess.passScore, enabled: wasEnabled.has(category) },
         });
         for (const [qi, q] of (assess.questions ?? []).entries()) {
           const dbQ = await tx.assessmentQuestion.create({

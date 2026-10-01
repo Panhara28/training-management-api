@@ -11,7 +11,7 @@ import { hashPassword, verifyPassword } from '../lib/crypto';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/staff-jwt';
 import { createSessionToken } from '../lib/portal-session';
 import { checkRateLimit, recordFailedAttempt, clearAttempts } from '../lib/rate-limit';
-import { getMocOAuthClient, MOC_EMAIL_DOMAIN, resolveCodeVerifier } from '../lib/moc-oauth';
+import { getMocOAuthClient, MOC_EMAIL_DOMAIN, resolvePkceState } from '../lib/moc-oauth';
 import type { AuthenticatedStaff } from '../common/interfaces/authenticated-staff.interface';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
@@ -50,16 +50,35 @@ export class AuthService {
   // session. Any existing, active user (admin, trainer or participant) with a
   // @moc.gov.kh email matches; participants get a portal session instead of a
   // staff one.
+  //
+  // When the sign-in was started from a public registration form, nothing is
+  // looked up or signed in: the AAS profile is handed back to pre-fill the form.
   async mocOauthLogin(code: string, state: string, pkceCookie: string | undefined, ip: string) {
-    const codeVerifier = resolveCodeVerifier(state, pkceCookie);
-    if (!codeVerifier) {
+    const pkce = resolvePkceState(state, pkceCookie);
+    if (!pkce) {
       throw new UnauthorizedException({ error: 'Invalid or expired login session. Please try again.' });
     }
 
-    const result = await getMocOAuthClient().validateAuthorizationCode({ code, codeVerifier });
+    const result = await getMocOAuthClient().validateAuthorizationCode({ code, codeVerifier: pkce.codeVerifier });
     if (!result.success || !result.data.isValid || !result.data.payload) {
       await this.audit.log({ userId: null, action: 'auth.moc_oauth.failed', ipAddress: ip });
       throw new UnauthorizedException({ error: 'AAS authentication failed. Please try again.' });
+    }
+
+    if (pkce.registerFor) {
+      const profile = result.data.payload;
+      return {
+        kind: 'registration' as const,
+        sessionId: pkce.registerFor,
+        // AAS has no department/office fields; the participant fills those in.
+        profile: {
+          fullName: profile.fullNameEn ?? '',
+          fullNameKh: profile.fullNameKm ?? '',
+          currentRole: profile.position ?? '',
+          email: profile.email?.toLowerCase() ?? '',
+          phoneNumber: profile.phoneNumber ?? '',
+        },
+      };
     }
 
     const email = result.data.payload.email?.toLowerCase();

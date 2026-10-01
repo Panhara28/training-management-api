@@ -8,6 +8,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -62,6 +63,13 @@ export class OptionDto {
 }
 
 export class QuestionDto {
+  // Set when editing an existing question, so it is updated in place and the
+  // answers already given to it are kept. Ignored when creating a training.
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @ApiProperty({ enum: ['multiple_choice', 'true_false', 'short_answer'] })
   @IsIn(['multiple_choice', 'true_false', 'short_answer'])
   type!: 'multiple_choice' | 'true_false' | 'short_answer';
@@ -107,6 +115,12 @@ export class AssessmentDto {
 }
 
 export class SurveyQuestionDto {
+  // Same as QuestionDto.id: keeps the answers of an existing survey question.
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @ApiProperty({ enum: ['rating', 'single_choice', 'multiple_choice', 'open_ended'] })
   @IsIn(['rating', 'single_choice', 'multiple_choice', 'open_ended'])
   type!: 'rating' | 'single_choice' | 'multiple_choice' | 'open_ended';

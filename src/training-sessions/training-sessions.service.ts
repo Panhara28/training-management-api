@@ -403,6 +403,7 @@ export class TrainingSessionsService {
         category: a.category.toLowerCase(),
         passScore: a.passScore,
         questions: a.questions.map((q) => ({
+          id: q.id,
           type: q.type.toLowerCase(),
           text: q.text,
           correctOption: q.correctOption ?? '',
@@ -411,6 +412,7 @@ export class TrainingSessionsService {
         })),
       })),
       surveyQuestions: session.surveyQuestions.map((sq) => ({
+        id: sq.id,
         type: sq.type.toLowerCase(),
         text: sq.text,
         required: sq.required,
@@ -481,48 +483,74 @@ export class TrainingSessionsService {
         });
       }
 
-      // Assessments are re-created from the form; keep each one open if it was.
-      const wasEnabled = new Set(
-        (await tx.sessionAssessment.findMany({ where: { sessionId: id, enabled: true }, select: { category: true } })).map(
-          (a) => a.category,
-        ),
-      );
-      await tx.sessionAssessment.deleteMany({ where: { sessionId: id } });
+      // Assessments, their questions and the survey questions are updated in
+      // place rather than re-created: the responses and answers participants
+      // have given hang off these rows and would be deleted with them. Only
+      // what the form no longer contains is removed.
+      const existingAssessments = await tx.sessionAssessment.findMany({
+        where: { sessionId: id },
+        include: { questions: { select: { id: true } } },
+      });
+      const keptAssessmentIds = new Set<string>();
       for (const assess of body.assessments ?? []) {
         const category = ASSESS_CATEGORY[assess.category];
-        const dbAssess = await tx.sessionAssessment.create({
-          data: { sessionId: id, category, passScore: assess.passScore, enabled: wasEnabled.has(category) },
-        });
+        // A training has one assessment per category.
+        const current = existingAssessments.find((a) => a.category === category && !keptAssessmentIds.has(a.id));
+        const dbAssess = current
+          ? await tx.sessionAssessment.update({ where: { id: current.id }, data: { passScore: assess.passScore } })
+          : await tx.sessionAssessment.create({ data: { sessionId: id, category, passScore: assess.passScore } });
+        keptAssessmentIds.add(dbAssess.id);
+
+        const currentQuestionIds = new Set(current?.questions.map((q) => q.id));
+        const keptQuestionIds = new Set<string>();
         for (const [qi, q] of (assess.questions ?? []).entries()) {
-          const dbQ = await tx.assessmentQuestion.create({
-            data: {
-              assessmentId: dbAssess.id,
-              type: QUESTION_TYPE[q.type],
-              text: q.text,
-              correctOption: q.correctOption ?? null,
-              points: q.points,
-              order: qi,
-            },
-          });
+          const data = {
+            type: QUESTION_TYPE[q.type],
+            text: q.text,
+            correctOption: q.correctOption ?? null,
+            points: q.points,
+            order: qi,
+          };
+          const isExisting = q.id !== undefined && currentQuestionIds.has(q.id) && !keptQuestionIds.has(q.id);
+          const dbQ = isExisting
+            ? await tx.assessmentQuestion.update({ where: { id: q.id }, data })
+            : await tx.assessmentQuestion.create({ data: { assessmentId: dbAssess.id, ...data } });
+          keptQuestionIds.add(dbQ.id);
+
+          // Options carry no answers (an answer stores the chosen position).
+          await tx.questionOption.deleteMany({ where: { questionId: dbQ.id } });
           if (q.options?.length) {
             await tx.questionOption.createMany({
               data: q.options.map((opt, oi) => ({ questionId: dbQ.id, text: opt.text, order: oi })),
             });
           }
         }
-      }
-
-      await tx.sessionSurveyQuestion.deleteMany({ where: { sessionId: id } });
-      for (const [si, sq] of (body.surveyQuestions ?? []).entries()) {
-        const dbSq = await tx.sessionSurveyQuestion.create({
-          data: { sessionId: id, type: SURVEY_TYPE[sq.type], text: sq.text, required: sq.required, order: si },
+        await tx.assessmentQuestion.deleteMany({
+          where: { assessmentId: dbAssess.id, id: { notIn: [...keptQuestionIds] } },
         });
+      }
+      await tx.sessionAssessment.deleteMany({ where: { sessionId: id, id: { notIn: [...keptAssessmentIds] } } });
+
+      const currentSurveyIds = new Set(
+        (await tx.sessionSurveyQuestion.findMany({ where: { sessionId: id }, select: { id: true } })).map((q) => q.id),
+      );
+      const keptSurveyIds = new Set<string>();
+      for (const [si, sq] of (body.surveyQuestions ?? []).entries()) {
+        const data = { type: SURVEY_TYPE[sq.type], text: sq.text, required: sq.required, order: si };
+        const isExisting = sq.id !== undefined && currentSurveyIds.has(sq.id) && !keptSurveyIds.has(sq.id);
+        const dbSq = isExisting
+          ? await tx.sessionSurveyQuestion.update({ where: { id: sq.id }, data })
+          : await tx.sessionSurveyQuestion.create({ data: { sessionId: id, ...data } });
+        keptSurveyIds.add(dbSq.id);
+
+        await tx.surveyQuestionOption.deleteMany({ where: { questionId: dbSq.id } });
         if (sq.options?.length) {
           await tx.surveyQuestionOption.createMany({
             data: sq.options.map((opt, oi) => ({ questionId: dbSq.id, text: opt.text, order: oi })),
           });
         }
       }
+      await tx.sessionSurveyQuestion.deleteMany({ where: { sessionId: id, id: { notIn: [...keptSurveyIds] } } });
     });
 
     return { sessionId: id };

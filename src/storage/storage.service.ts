@@ -1,4 +1,10 @@
-import { BadGatewayException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { createHash, createHmac, randomUUID } from 'crypto';
 
 type UploadableFile = {
@@ -90,6 +96,14 @@ export class StorageService {
 
     const uploaded = Array.isArray(payload?.uploads) ? payload.uploads[0] : null;
     if (!uploaded?.slug || !uploaded?.url) {
+      // The service answers 201 even when it refuses the file (e.g. content that
+      // does not match its extension) and explains why in `failures`.
+      const failure = Array.isArray(payload?.failures) ? payload.failures[0] : null;
+      if (typeof failure?.reason === 'string') {
+        throw new UnprocessableEntityException({
+          error: `The file was not accepted: ${file.originalname} ${failure.reason}`,
+        });
+      }
       throw new BadGatewayException('Object storage returned an invalid upload response.');
     }
 

@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, Injectable, NotFoundException } 
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPassword } from '../lib/crypto';
+import { staffMayUsePortal } from '../lib/portal-staff-access';
 import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
@@ -36,7 +37,7 @@ export class TrainingPublicService {
 
     let user = await this.prisma.user.findUnique({ where: { email } });
 
-    if (user && user.role !== 'PARTICIPANT') {
+    if (user && user.role !== 'PARTICIPANT' && !staffMayUsePortal(email)) {
       throw new ConflictException({ error: 'This email is already associated with a staff account.' });
     }
 

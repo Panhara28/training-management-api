@@ -36,16 +36,20 @@ function getJwtSecret(): string {
 export type PkceChallenge = {
   state: string;
   codeChallenge: string;
-  // Signed { nonce, codeVerifier, registerFor? } — stored in an httpOnly cookie between the
+  // Signed { nonce, codeVerifier, ...purpose } — stored in an httpOnly cookie between the
   // login redirect and the callback, so any API instance can finish the flow.
   pkceCookie: string;
 };
 
-// `registerFor` marks a sign-in that only auto-fills the public registration
-// form of that training session. It travels in the signed cookie, not the
-// state: AAS rejects a state longer than 255 characters, and the nonce alone
-// already brings it to 185.
-export function createPkceChallenge(registerFor?: string): PkceChallenge {
+// What a sign-in is for, beyond a plain login:
+// - `registerFor`: only auto-fills the public registration form of that
+//   training session.
+// - `fromPortal`: started from the participant login page.
+// It travels in the signed cookie, not the state: AAS rejects a state longer
+// than 255 characters, and the nonce alone already brings it to 185.
+export type SignInPurpose = { registerFor?: string; fromPortal?: boolean };
+
+export function createPkceChallenge(purpose: SignInPurpose = {}): PkceChallenge {
   const nonce = crypto.randomBytes(16).toString('hex');
   const codeVerifier = crypto.randomBytes(32).toString('base64url');
   const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
@@ -54,9 +58,16 @@ export function createPkceChallenge(registerFor?: string): PkceChallenge {
   return {
     state: jwt.sign({ nonce }, secret, { expiresIn: PKCE_TTL_SECONDS }),
     codeChallenge,
-    pkceCookie: jwt.sign({ nonce, codeVerifier, ...(registerFor ? { registerFor } : {}) }, secret, {
-      expiresIn: PKCE_TTL_SECONDS,
-    }),
+    pkceCookie: jwt.sign(
+      {
+        nonce,
+        codeVerifier,
+        ...(purpose.registerFor ? { registerFor: purpose.registerFor } : {}),
+        ...(purpose.fromPortal ? { fromPortal: true } : {}),
+      },
+      secret,
+      { expiresIn: PKCE_TTL_SECONDS },
+    ),
   };
 }
 
@@ -65,14 +76,18 @@ export function createPkceChallenge(registerFor?: string): PkceChallenge {
 export function resolvePkceState(
   state: string,
   pkceCookie: string | undefined,
-): { codeVerifier: string; registerFor: string | null } | null {
+): { codeVerifier: string; registerFor: string | null; fromPortal: boolean } | null {
   if (!pkceCookie) return null;
   try {
     const secret = getJwtSecret();
     const fromState = jwt.verify(state, secret) as { nonce?: string };
-    const fromCookie = jwt.verify(pkceCookie, secret) as { nonce?: string; codeVerifier?: string; registerFor?: string };
+    const fromCookie = jwt.verify(pkceCookie, secret) as { nonce?: string; codeVerifier?: string } & SignInPurpose;
     if (!fromState.nonce || fromState.nonce !== fromCookie.nonce || !fromCookie.codeVerifier) return null;
-    return { codeVerifier: fromCookie.codeVerifier, registerFor: fromCookie.registerFor ?? null };
+    return {
+      codeVerifier: fromCookie.codeVerifier,
+      registerFor: fromCookie.registerFor ?? null,
+      fromPortal: fromCookie.fromPortal === true,
+    };
   } catch {
     return null;
   }

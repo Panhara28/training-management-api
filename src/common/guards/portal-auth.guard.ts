@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import type { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { verifySessionToken, SESSION_COOKIE } from '../../lib/portal-session';
+import { staffMayUsePortal } from '../../lib/portal-staff-access';
 import type { User } from '@prisma/client';
 
 @Injectable()
@@ -17,7 +18,7 @@ export class PortalAuthGuard implements CanActivate {
     }
 
     const user = await this.prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user || user.role !== 'PARTICIPANT') {
+    if (!user || (user.role !== 'PARTICIPANT' && !staffMayUsePortal(user.email))) {
       throw new UnauthorizedException('Authentication required.');
     }
 

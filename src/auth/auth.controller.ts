@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { StaffAuthGuard } from '../common/guards/staff-auth.guard';
@@ -12,7 +12,14 @@ import {
   verifyAccessToken,
 } from '../lib/staff-jwt';
 import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from '../lib/portal-session';
-import { createPkceChallenge, getMocOAuthClient, PKCE_COOKIE, PKCE_COOKIE_PATH, PKCE_TTL_SECONDS } from '../lib/moc-oauth';
+import {
+  createPkceChallenge,
+  getMocOAuthClient,
+  PKCE_COOKIE,
+  PKCE_COOKIE_PATH,
+  PKCE_TTL_SECONDS,
+  type SignInPurpose,
+} from '../lib/moc-oauth';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -51,8 +58,8 @@ export class AuthController {
   // is 302'd on to the AAS identity provider.
   @Get('moc-oauth/login')
   @ApiOperation({ summary: 'Start AAS (MOC OAuth) login — redirects to AAS' })
-  mocOauthLogin(@Res() res: Response) {
-    return this.redirectToAas(res);
+  mocOauthLogin(@Res() res: Response, @Query('from') from?: string) {
+    return this.redirectToAas(res, { fromPortal: from === 'portal' });
   }
 
   // Same AAS sign-in, started from the public registration form of a training.
@@ -61,12 +68,12 @@ export class AuthController {
   @Get('moc-oauth/registration/:sessionId')
   @ApiOperation({ summary: 'Start AAS sign-in to auto-fill a training registration form' })
   mocOauthRegistration(@Param('sessionId', ParseUUIDPipe) sessionId: string, @Res() res: Response) {
-    return this.redirectToAas(res, sessionId);
+    return this.redirectToAas(res, { registerFor: sessionId });
   }
 
-  private async redirectToAas(res: Response, registerFor?: string) {
+  private async redirectToAas(res: Response, purpose: SignInPurpose) {
     try {
-      const { state, codeChallenge, pkceCookie } = createPkceChallenge(registerFor);
+      const { state, codeChallenge, pkceCookie } = createPkceChallenge(purpose);
       const result = await getMocOAuthClient().getLoginToken({ state, codeChallenge, codeChallengeMethod: 'S256' });
       if (!result.success) throw new Error(result.error?.message || 'Unable to reach AAS login');
 
@@ -75,7 +82,7 @@ export class AuthController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to reach AAS login';
       const params = new URLSearchParams({ error: 'aas_unavailable', error_description: message });
-      if (registerFor) params.set('register', registerFor);
+      if (purpose.registerFor) params.set('register', purpose.registerFor);
       return res.redirect(`/auth/callback?${params.toString()}`);
     }
   }
@@ -84,7 +91,9 @@ export class AuthController {
   // { code, state } AAS redirected back with.
   @Post('moc-oauth/callback')
   @ApiOperation({ summary: 'Complete AAS (MOC OAuth) login' })
-  @ApiOkResponse({ description: 'user, or { registration: { sessionId, profile } } for a registration auto-fill' })
+  @ApiOkResponse({
+    description: 'user plus { portal } (which session was issued), or { registration: { sessionId, profile } }',
+  })
   async mocOauthCallback(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -107,7 +116,7 @@ export class AuthController {
       res.cookie(REFRESH_COOKIE, result.refreshToken, this.cookieOptions(REFRESH_TTL_SECONDS));
     }
 
-    return result.user;
+    return { ...result.user, portal: result.kind === 'portal' };
   }
 
   @Post('logout')

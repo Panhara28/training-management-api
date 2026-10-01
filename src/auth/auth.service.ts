@@ -12,6 +12,7 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/st
 import { createSessionToken } from '../lib/portal-session';
 import { checkRateLimit, recordFailedAttempt, clearAttempts } from '../lib/rate-limit';
 import { getMocOAuthClient, MOC_EMAIL_DOMAIN, resolvePkceState } from '../lib/moc-oauth';
+import { staffMayUsePortal } from '../lib/portal-staff-access';
 import type { AuthenticatedStaff } from '../common/interfaces/authenticated-staff.interface';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
@@ -100,8 +101,11 @@ export class AuthService {
     await this.audit.log({ userId: user.id, action: 'auth.moc_oauth.success', ipAddress: ip });
 
     const publicUser = { id: user.id, username: user.username, fullName: user.fullName, role: user.role };
-    if (user.role === 'PARTICIPANT') {
-      return { kind: 'portal' as const, portalToken: createSessionToken(user.id, user.role), user: publicUser };
+    // A staff member allowed onto the portal gets a participant session when
+    // they sign in from the participant login page, and a staff one otherwise.
+    const asParticipant = user.role === 'PARTICIPANT' || (pkce.fromPortal && staffMayUsePortal(user.email));
+    if (asParticipant) {
+      return { kind: 'portal' as const, portalToken: createSessionToken(user.id, 'PARTICIPANT'), user: publicUser };
     }
     return {
       kind: 'staff' as const,

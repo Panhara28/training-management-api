@@ -1,6 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsIn, IsUUID, IsOptional, IsString } from 'class-validator';
 
 export class UpdateUserDto {
   @ApiPropertyOptional()
@@ -8,11 +7,10 @@ export class UpdateUserDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  staffRoleId?: number | null;
+  @IsUUID()
+  staffRoleId?: string | null;
 
   @ApiPropertyOptional({ enum: ['ADMIN', 'TRAINER'] })
   @IsOptional()

@@ -4,7 +4,7 @@ import {
   AssessmentCategory, QuestionType, SurveyQuestionType, MaterialType,
 } from '@prisma/client';
 import { hashPassword } from '../src/lib/crypto';
-import { formatCertificateNo } from '../src/lib/certificate-eligibility';
+import { issueCertificate } from '../src/lib/certificate-eligibility';
 
 const prisma = new PrismaClient();
 
@@ -235,7 +235,7 @@ async function main() {
   const d = (y: number, m: number, day: number) => new Date(y, m - 1, day);
 
   async function seedSession(data: {
-    programId: number; title: string; venue: string; startDate: Date; endDate: Date;
+    programId: string; title: string; venue: string; startDate: Date; endDate: Date;
     maxCapacity: number; status: SessionStatus;
   }) {
     const existing = await prisma.trainingSession.findFirst({ where: { title: data.title, programId: data.programId } });
@@ -337,7 +337,7 @@ async function main() {
     const existingAgenda = await prisma.sessionAgendaItem.count({ where: { sessionId: session.id } });
     if (existingAgenda > 0) continue;
     const durationDays = programs[sessionProgramIdx[i]].durationDays;
-    const rows: { sessionId: number; day: number; timeFrom: string; timeTo: string; topic: string; facilitator: string; order: number }[] = [];
+    const rows: { sessionId: string; day: number; timeFrom: string; timeTo: string; topic: string; facilitator: string; order: number }[] = [];
     let order = 0;
     for (let day = 1; day <= durationDays; day++) {
       const topics = day === durationDays && durationDays > 1 ? CLOSING_TOPICS : AGENDA_TOPICS;
@@ -375,7 +375,7 @@ async function main() {
     [AssessmentCategory.EXAM]: 75,
   };
 
-  async function seedAssessment(sessionId: number, category: AssessmentCategory, enabled: boolean) {
+  async function seedAssessment(sessionId: string, category: AssessmentCategory, enabled: boolean) {
     const existing = await prisma.sessionAssessment.findFirst({ where: { sessionId, category } });
     if (existing) return existing;
     const assessment = await prisma.sessionAssessment.create({
@@ -397,8 +397,8 @@ async function main() {
     return assessment;
   }
 
-  const sessionAssessments: Record<number, Partial<Record<AssessmentCategory, { id: number; passScore: number }>>> = {};
-  const assessmentPlan: Record<number, { category: AssessmentCategory; enabled: boolean }[]> = {
+  const sessionAssessments: Record<string, Partial<Record<AssessmentCategory, { id: string; passScore: number }>>> = {};
+  const assessmentPlan: Record<string, { category: AssessmentCategory; enabled: boolean }[]> = {
     [sessions[0].id]: [
       { category: AssessmentCategory.PRE, enabled: true },
       { category: AssessmentCategory.POST, enabled: true },
@@ -436,15 +436,14 @@ async function main() {
   console.log(`  ✓ ${assessmentCount} assessments (varying PRE/POST/EXAM combinations)`);
 
   // ── Survey questions ─────────────────────────────────────────────────────────
-  const surveySessions: Record<number, boolean> = {
+  const surveySessions: Record<string, boolean> = {
     [sessions[0].id]: true,
     [sessions[1].id]: true,
     [sessions[3].id]: false,
     [sessions[5].id]: false,
   };
   let surveyCount = 0;
-  for (const [sessionIdStr, enabled] of Object.entries(surveySessions)) {
-    const sessionId = Number(sessionIdStr);
+  for (const [sessionId, enabled] of Object.entries(surveySessions)) {
     await prisma.trainingSession.update({ where: { id: sessionId }, data: { surveyEnabled: enabled } });
     const existingQuestions = await prisma.sessionSurveyQuestion.count({ where: { sessionId } });
     if (existingQuestions > 0) continue;
@@ -490,8 +489,8 @@ async function main() {
 
   // ── Enrollments ──────────────────────────────────────────────────────────────
   const enrollmentData: Array<{
-    userId: number;
-    sessionId: number;
+    userId: string;
+    sessionId: string;
     status: EnrollmentStatus;
     score?: number;
   }> = [
@@ -523,7 +522,7 @@ async function main() {
     { userId: participants[10].id, sessionId: sessions[3].id, status: EnrollmentStatus.ENROLLED },
   ];
 
-  const enrollmentByKey = new Map<string, { id: number }>();
+  const enrollmentByKey = new Map<string, { id: string }>();
   for (const e of enrollmentData) {
     const enrollment = await prisma.enrollment.upsert({
       where: { userId_sessionId: { userId: e.userId, sessionId: e.sessionId } },
@@ -540,8 +539,8 @@ async function main() {
   }
 
   async function seedAssessmentResponse(
-    enrollmentId: number,
-    assessment: { id: number; passScore: number },
+    enrollmentId: string,
+    assessment: { id: string; passScore: number },
     score: number,
   ) {
     const existing = await prisma.assessmentResponse.findUnique({
@@ -625,17 +624,13 @@ async function main() {
   const attended = enrollmentData.filter((e) => e.status === EnrollmentStatus.ATTENDED);
   let certCount = 0;
   for (const e of attended) {
-    const certNo = formatCertificateNo(e.sessionId, e.userId);
-    await prisma.certificate.upsert({
-      where: { certificateNo: certNo },
-      update: {},
-      create: {
-        userId: e.userId,
-        sessionId: e.sessionId,
-        certificateNo: certNo,
-        issuedAt: new Date('2026-07-01'),
-      },
-    });
+    const userId_sessionId = { userId: e.userId, sessionId: e.sessionId };
+    if (!(await prisma.certificate.findUnique({ where: { userId_sessionId } }))) {
+      const certificate = await issueCertificate(prisma, e.userId, e.sessionId);
+      if (certificate) {
+        await prisma.certificate.update({ where: { id: certificate.id }, data: { issuedAt: new Date('2026-07-01') } });
+      }
+    }
     certCount++;
   }
   console.log(`  ✓ ${certCount} certificates`);

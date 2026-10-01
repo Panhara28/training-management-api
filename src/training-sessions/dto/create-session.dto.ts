@@ -1,12 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { IsInt, IsUUID, IsNotEmpty, IsString, Min } from 'class-validator';
 
 export class CreateSessionDto {
-  @ApiProperty({ example: 1 })
-  @Type(() => Number)
-  @IsInt()
-  programId!: number;
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  programId!: string;
 
   @ApiProperty()
   @IsString()

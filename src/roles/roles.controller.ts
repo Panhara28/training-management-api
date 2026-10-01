@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -48,7 +48,7 @@ export class RolesController {
   @ApiOperation({ summary: 'Get a staff role with permissions' })
   @ApiOkResponse({ description: 'StaffRole' })
   @ApiNotFoundResponse({ description: 'Not found' })
-  detail(@Param('id', ParseIntPipe) id: number) {
+  detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.rolesService.detail(id);
   }
 
@@ -56,7 +56,7 @@ export class RolesController {
   @RequirePermission('users', 'update')
   @ApiOperation({ summary: 'Update a staff role name/description' })
   @ApiOkResponse({ description: 'StaffRole' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateRoleDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateRoleDto) {
     return this.rolesService.update(id, body);
   }
 
@@ -64,7 +64,7 @@ export class RolesController {
   @RequirePermission('users', 'update')
   @ApiOperation({ summary: 'Update the permission matrix for a role' })
   @ApiOkResponse({ description: 'StaffRole' })
-  updatePermissions(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateRolePermissionsDto) {
+  updatePermissions(@Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateRolePermissionsDto) {
     return this.rolesService.updatePermissions(id, body);
   }
 
@@ -72,7 +72,7 @@ export class RolesController {
   @RequirePermission('users', 'update')
   @ApiOperation({ summary: 'Assign users to a role' })
   @ApiOkResponse({ description: '{ ok: true }' })
-  assignUsers(@Param('id', ParseIntPipe) id: number, @Body() body: AssignUsersDto) {
+  assignUsers(@Param('id', ParseUUIDPipe) id: string, @Body() body: AssignUsersDto) {
     return this.rolesService.assignUsers(id, body);
   }
 
@@ -81,7 +81,7 @@ export class RolesController {
   @ApiOperation({ summary: 'Delete a staff role' })
   @ApiOkResponse({ description: '{ ok: true }' })
   @ApiConflictResponse({ description: 'Role still assigned to users' })
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.rolesService.remove(id);
   }
 }

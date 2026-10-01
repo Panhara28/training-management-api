@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsInt } from 'class-validator';
+import { IsArray, IsUUID } from 'class-validator';
 
 export class AssignTrainersDto {
-  @ApiProperty({ type: [Number], example: [1, 2] })
+  @ApiProperty({ type: [String], format: 'uuid' })
   @IsArray()
-  @IsInt({ each: true })
-  userIds!: number[];
+  @IsUUID('all', { each: true })
+  userIds!: string[];
 }

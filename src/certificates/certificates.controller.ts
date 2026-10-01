@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Res, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -56,7 +56,7 @@ export class CertificatesController {
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   @ApiOperation({ summary: 'Download all certificates of a training batch as one PDF (one page each)' })
   @ApiNotFoundResponse({ description: 'No certificates issued for this training' })
-  async sessionDocument(@Param('sessionId', ParseIntPipe) sessionId: number, @Res() res: Response) {
+  async sessionDocument(@Param('sessionId', ParseUUIDPipe) sessionId: string, @Res() res: Response) {
     const pdf = await this.certificatesService.sessionDocument(sessionId);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="certificates-training-${sessionId}.pdf"`);
@@ -70,7 +70,7 @@ export class CertificatesController {
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   @ApiOperation({ summary: 'Certificate preview image (JPEG)' })
   @ApiNotFoundResponse({ description: 'Certificate not found' })
-  async preview(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+  async preview(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     const image = await this.certificatesService.preview(id);
     res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Cache-Control', 'private, no-cache');
@@ -84,7 +84,7 @@ export class CertificatesController {
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   @ApiOperation({ summary: 'Download a certificate PDF' })
   @ApiNotFoundResponse({ description: 'Certificate not found' })
-  async document(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+  async document(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     const pdf = await this.certificatesService.document(id);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="certificate-${id}.pdf"`);

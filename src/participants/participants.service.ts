@@ -28,7 +28,7 @@ export class ParticipantsService {
     }));
   }
 
-  async detail(id: number) {
+  async detail(id: string) {
     const participant = await this.prisma.user.findFirst({
       where: { id, role: 'PARTICIPANT' },
       include: {

@@ -1,7 +1,7 @@
 import type { Role } from '@prisma/client';
 
 export type AuthenticatedStaff = {
-  userId: number;
-  staffRoleId: number | null;
+  userId: string;
+  staffRoleId: string | null;
   role: Role;
 };

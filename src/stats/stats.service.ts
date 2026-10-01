@@ -40,7 +40,7 @@ export class StatsService {
     };
   }
 
-  private async getAssignedSessionIds(userId: number): Promise<number[]> {
+  private async getAssignedSessionIds(userId: string): Promise<string[]> {
     const rows = await this.prisma.trainerOnSession.findMany({ where: { userId }, select: { sessionId: true } });
     return rows.map((r) => r.sessionId);
   }

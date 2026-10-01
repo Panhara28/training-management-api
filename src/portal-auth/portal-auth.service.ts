@@ -35,7 +35,7 @@ export class PortalAuthService {
     };
   }
 
-  async me(userId: number) {
+  async me(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
       select: {

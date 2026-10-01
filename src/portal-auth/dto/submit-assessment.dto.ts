@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsInt, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsUUID, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 export class AssessmentAnswerDto {
-  @ApiProperty()
-  @IsInt()
-  questionId!: number;
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  questionId!: string;
 
   @ApiPropertyOptional()
   @IsOptional()

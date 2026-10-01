@@ -14,7 +14,7 @@ export class UsersService {
       where: {
         role: { not: 'PARTICIPANT' },
         ...(role ? { role: role as Role } : {}),
-        ...(departmentId ? { departmentId: Number(departmentId) } : {}),
+        ...(departmentId ? { departmentId } : {}),
       },
       select: {
         id: true,
@@ -68,7 +68,7 @@ export class UsersService {
     return user;
   }
 
-  async detail(id: number) {
+  async detail(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: {
@@ -92,7 +92,7 @@ export class UsersService {
     return user;
   }
 
-  async update(id: number, body: UpdateUserDto, actingUserId: number) {
+  async update(id: string, body: UpdateUserDto, actingUserId: string) {
     if (Object.keys(body).length === 0) {
       throw new BadRequestException({ error: 'Nothing to update.' });
     }
@@ -135,7 +135,7 @@ export class UsersService {
     return user;
   }
 
-  async remove(id: number, actingUserId: number) {
+  async remove(id: string, actingUserId: string) {
     if (id === actingUserId) {
       throw new BadRequestException({ error: 'You cannot delete your own account.' });
     }
@@ -145,7 +145,7 @@ export class UsersService {
   }
 
   // At least one active ADMIN must always remain, or nobody can manage the system.
-  private async assertNotLastActiveAdmin(id: number) {
+  private async assertNotLastActiveAdmin(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id }, select: { role: true, isActive: true } });
     if (!user) throw new NotFoundException({ error: 'Not found' });
     if (user.role !== 'ADMIN' || !user.isActive) return;

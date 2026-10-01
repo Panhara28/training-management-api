@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -40,7 +40,7 @@ export class TrainersController {
   @ApiOperation({ summary: 'Get a trainer profile and their assigned sessions' })
   @ApiOkResponse({ description: 'Trainer detail with sessions[]' })
   @ApiNotFoundResponse({ description: 'Not found' })
-  detail(@Param('id', ParseIntPipe) id: number) {
+  detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.sessionsService.trainerDetail(id);
   }
 }

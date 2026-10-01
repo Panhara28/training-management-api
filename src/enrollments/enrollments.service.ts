@@ -10,8 +10,8 @@ export class EnrollmentsService {
   list(sessionId?: string, userId?: string) {
     return this.prisma.enrollment.findMany({
       where: {
-        ...(sessionId ? { sessionId: Number(sessionId) } : {}),
-        ...(userId ? { userId: Number(userId) } : {}),
+        ...(sessionId ? { sessionId } : {}),
+        ...(userId ? { userId } : {}),
       },
       include: {
         user: { select: { id: true, fullName: true, email: true } },
@@ -23,11 +23,11 @@ export class EnrollmentsService {
 
   async create(data: CreateEnrollmentDto) {
     const session = await this.prisma.trainingSession.findUnique({
-      where: { id: Number(data.sessionId) },
+      where: { id: data.sessionId },
       include: { _count: { select: { enrollments: true } } },
     });
     if (!session) throw new NotFoundException({ error: 'Session not found' });
-    const user = await this.prisma.user.findUnique({ where: { id: Number(data.userId) }, select: { id: true } });
+    const user = await this.prisma.user.findUnique({ where: { id: data.userId }, select: { id: true } });
     if (!user) throw new NotFoundException({ error: 'Participant not found' });
     const existing = await this.prisma.enrollment.findUnique({
       where: { userId_sessionId: { userId: user.id, sessionId: session.id } },
@@ -39,7 +39,7 @@ export class EnrollmentsService {
     }
 
     return this.prisma.enrollment.create({
-      data: { userId: Number(data.userId), sessionId: Number(data.sessionId) },
+      data: { userId: data.userId, sessionId: data.sessionId },
       include: {
         user: { select: { fullName: true } },
         session: { select: { title: true } },
@@ -49,7 +49,7 @@ export class EnrollmentsService {
 
   update(data: UpdateEnrollmentDto) {
     return this.prisma.enrollment.update({
-      where: { id: Number(data.id) },
+      where: { id: data.id },
       data: { status: data.status, ...(data.score !== undefined ? { score: data.score } : {}) },
     });
   }

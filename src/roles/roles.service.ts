@@ -39,7 +39,7 @@ export class RolesService {
     return role;
   }
 
-  async detail(id: number) {
+  async detail(id: string) {
     const role = await this.prisma.staffRole.findUnique({
       where: { id },
       include: { permissions: { include: { module: true } } },
@@ -48,7 +48,7 @@ export class RolesService {
     return role;
   }
 
-  async update(id: number, data: UpdateRoleDto) {
+  async update(id: string, data: UpdateRoleDto) {
     const role = await this.prisma.staffRole.findUnique({ where: { id } });
     if (!role) throw new NotFoundException({ error: 'Role not found.' });
 
@@ -61,7 +61,7 @@ export class RolesService {
     });
   }
 
-  async updatePermissions(id: number, data: UpdateRolePermissionsDto) {
+  async updatePermissions(id: string, data: UpdateRolePermissionsDto) {
     const role = await this.prisma.staffRole.findUnique({ where: { id } });
     if (!role) throw new NotFoundException({ error: 'Role not found.' });
 
@@ -78,7 +78,7 @@ export class RolesService {
     return this.detail(id);
   }
 
-  async assignUsers(id: number, data: AssignUsersDto) {
+  async assignUsers(id: string, data: AssignUsersDto) {
     const role = await this.prisma.staffRole.findUnique({ where: { id } });
     if (!role) throw new NotFoundException({ error: 'Role not found.' });
 
@@ -90,7 +90,7 @@ export class RolesService {
     return { ok: true };
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     const role = await this.prisma.staffRole.findUnique({
       where: { id },
       include: { _count: { select: { users: true } } },

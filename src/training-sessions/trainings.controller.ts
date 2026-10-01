@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Res, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -36,7 +36,7 @@ export class TrainingsController {
   @ApiOperation({ summary: 'Get a training in edit-form shape' })
   @ApiOkResponse({ description: 'TrainingFormShape' })
   @ApiNotFoundResponse({ description: 'Not found' })
-  get(@Param('id', ParseIntPipe) id: number) {
+  get(@Param('id', ParseUUIDPipe) id: string) {
     return this.sessionsService.getTraining(id);
   }
 
@@ -45,7 +45,7 @@ export class TrainingsController {
   @ApiOperation({ summary: 'Replace a training (program + session + agenda + materials + assessments + survey)' })
   @ApiOkResponse({ description: '{ sessionId }' })
   @ApiNotFoundResponse({ description: 'Not found' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() body: CreateTrainingDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() body: CreateTrainingDto) {
     return this.sessionsService.updateTraining(id, body);
   }
 
@@ -53,7 +53,7 @@ export class TrainingsController {
   @RequirePermission('trainings', 'read')
   @ApiOperation({ summary: 'Get attendance/assessment/survey analytics for a training' })
   @ApiOkResponse({ description: 'TrainingAnalytics' })
-  analytics(@Param('id', ParseIntPipe) id: number) {
+  analytics(@Param('id', ParseUUIDPipe) id: string) {
     return this.sessionsService.analytics(id);
   }
 
@@ -61,7 +61,7 @@ export class TrainingsController {
   @RequirePermission('trainings', 'read')
   @ApiOperation({ summary: 'Download the Khmer invitation PDF for a training' })
   @ApiNotFoundResponse({ description: 'Training not found' })
-  async document(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+  async document(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     const pdf = await this.sessionsService.document(id);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="invitation-${id}.pdf"`);
@@ -72,7 +72,7 @@ export class TrainingsController {
   @RequirePermission('trainings', 'create')
   @ApiOperation({ summary: 'Seed demo analytics data for a training (dev/demo helper)' })
   @ApiOkResponse({ description: '{ seeded, participants, attended }' })
-  seedAnalytics(@Param('id', ParseIntPipe) id: number) {
+  seedAnalytics(@Param('id', ParseUUIDPipe) id: string) {
     return this.sessionsService.seedAnalytics(id);
   }
 }

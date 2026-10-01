@@ -19,7 +19,7 @@ export class TrainingPublicService {
     return candidate;
   }
 
-  async register(sessionId: number, body: RegisterDto) {
+  async register(sessionId: string, body: RegisterDto) {
     const trainingSession = await this.prisma.trainingSession.findUnique({
       where: { id: sessionId },
       include: { _count: { select: { enrollments: true } } },

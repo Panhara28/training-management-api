@@ -1,17 +1,51 @@
+import { Prisma, type PrismaClient } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 
-export function formatCertificateNo(sessionId: number, participantId: number): string {
-  return `TTRI-${String(sessionId).padStart(3, '0')}-${String(participantId).padStart(4, '0')}`;
+// TTRI-<training running number>-<certificate running number within the training>
+export function formatCertificateNo(sessionSerialNo: number, certificateSerialNo: number): string {
+  return `TTRI-${String(sessionSerialNo).padStart(3, '0')}-${String(certificateSerialNo).padStart(4, '0')}`;
+}
+
+const MAX_SERIAL_ATTEMPTS = 5;
+
+/**
+ * Issues the participant's certificate for a session and returns it; returns the
+ * existing one if it was already issued, or null if the session does not exist.
+ * The certificate takes the next running number of its training. Two requests
+ * racing for the same number are settled by the unique indexes: the loser retries.
+ */
+export async function issueCertificate(prisma: PrismaClient, userId: string, sessionId: string) {
+  const userId_sessionId = { userId, sessionId };
+  const existing = await prisma.certificate.findUnique({ where: { userId_sessionId } });
+  if (existing) return existing;
+
+  const session = await prisma.trainingSession.findUnique({ where: { id: sessionId }, select: { serialNo: true } });
+  if (!session) return null;
+
+  for (let attempt = 1; ; attempt++) {
+    const last = await prisma.certificate.aggregate({ where: { sessionId }, _max: { serialNo: true } });
+    const serialNo = (last._max.serialNo ?? 0) + 1;
+    try {
+      return await prisma.certificate.create({
+        data: { userId, sessionId, serialNo, certificateNo: formatCertificateNo(session.serialNo, serialNo) },
+      });
+    } catch (error) {
+      const isUniqueViolation = error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+      if (!isUniqueViolation || attempt >= MAX_SERIAL_ATTEMPTS) throw error;
+      const issuedMeanwhile = await prisma.certificate.findUnique({ where: { userId_sessionId } });
+      if (issuedMeanwhile) return issuedMeanwhile;
+    }
+  }
 }
 
 /**
  * Issues a Certificate once a participant has passed every enabled POST/EXAM
  * assessment (if any) and submitted the survey (if enabled). Safe to call
- * redundantly from multiple trigger points — upserts on the unique certificateNo.
+ * redundantly from multiple trigger points — a participant gets one certificate per session.
  */
 export async function checkAndIssueCertificateIfEligible(
-  participantId: number,
-  sessionId: number,
+  participantId: string,
+  sessionId: string,
   prisma: PrismaService,
 ) {
   const enrollment = await prisma.enrollment.findUnique({
@@ -51,10 +85,5 @@ export async function checkAndIssueCertificateIfEligible(
     await prisma.enrollment.update({ where: { id: enrollment.id }, data: { status: 'ATTENDED' } });
   }
 
-  const certificateNo = formatCertificateNo(sessionId, participantId);
-  return prisma.certificate.upsert({
-    where: { certificateNo },
-    update: {},
-    create: { userId: participantId, sessionId, certificateNo },
-  });
+  return issueCertificate(prisma, participantId, sessionId);
 }

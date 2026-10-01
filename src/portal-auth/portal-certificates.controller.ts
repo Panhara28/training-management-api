@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiCookieAuth } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { PortalAuthGuard } from '../common/guards/portal-auth.guard';
@@ -24,7 +24,7 @@ export class PortalCertificatesController {
   @ApiOperation({ summary: 'Download a certificate PDF (own certificate only)' })
   async document(
     @CurrentParticipant() participant: User,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
   ) {
     const pdf = await this.portalTrainingsService.certificateDocument(participant.id, id);

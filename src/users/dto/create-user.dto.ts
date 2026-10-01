@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsIn, IsUUID, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateUserDto {
   @ApiProperty()
@@ -52,15 +51,13 @@ export class CreateUserDto {
   @IsIn(['ADMIN', 'TRAINER'])
   role!: 'ADMIN' | 'TRAINER';
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  staffRoleId?: number;
+  @IsUUID()
+  staffRoleId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  departmentId?: number;
+  @IsUUID()
+  departmentId?: string;
 }

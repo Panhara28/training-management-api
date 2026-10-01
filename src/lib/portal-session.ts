@@ -9,13 +9,13 @@ function getSessionSecret(): string {
   return secret;
 }
 
-type SessionPayload = { userId: number; role: string; exp: number };
+type SessionPayload = { userId: string; role: string; exp: number };
 
 function sign(value: string): string {
   return createHmac('sha256', getSessionSecret()).update(value).digest('base64url');
 }
 
-export function createSessionToken(userId: number, role: string): string {
+export function createSessionToken(userId: string, role: string): string {
   const payload: SessionPayload = { userId, role, exp: Date.now() + SESSION_MAX_AGE_SECONDS * 1000 };
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `${body}.${sign(body)}`;
@@ -36,6 +36,8 @@ export function verifySessionToken(token: string | undefined): SessionPayload | 
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as SessionPayload;
     if (payload.exp < Date.now()) return null;
+    // Sessions issued before ids became UUIDs carry a numeric userId.
+    if (typeof payload.userId !== 'string') return null;
     return payload;
   } catch {
     return null;

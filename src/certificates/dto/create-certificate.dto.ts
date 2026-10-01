@@ -1,15 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt } from 'class-validator';
+import { IsUUID } from 'class-validator';
 
 export class CreateCertificateDto {
-  @ApiProperty({ example: 1 })
-  @Type(() => Number)
-  @IsInt()
-  userId!: number;
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  userId!: string;
 
-  @ApiProperty({ example: 1 })
-  @Type(() => Number)
-  @IsInt()
-  sessionId!: number;
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  sessionId!: string;
 }

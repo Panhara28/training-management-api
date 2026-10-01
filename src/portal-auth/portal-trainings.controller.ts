@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiCookieAuth, ApiForbiddenResponse } from '@nestjs/swagger';
 import { PortalAuthGuard } from '../common/guards/portal-auth.guard';
 import { CurrentParticipant } from '../common/decorators/current-participant.decorator';
@@ -25,7 +25,7 @@ export class PortalTrainingsController {
   @ApiOperation({ summary: 'Get training detail for an enrolled participant' })
   @ApiOkResponse({ description: 'PortalTrainingDetail' })
   @ApiForbiddenResponse({ description: 'Not enrolled in this training' })
-  get(@CurrentParticipant() participant: User, @Param('id', ParseIntPipe) id: number) {
+  get(@CurrentParticipant() participant: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.portalTrainingsService.getTraining(participant.id, id);
   }
 
@@ -34,8 +34,8 @@ export class PortalTrainingsController {
   @ApiOkResponse({ description: '{ score, passed, submittedAt, certificateIssued, certificateId }' })
   submitAssessment(
     @CurrentParticipant() participant: User,
-    @Param('id', ParseIntPipe) id: number,
-    @Param('assessmentId', ParseIntPipe) assessmentId: number,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
     @Body() body: SubmitAssessmentDto,
   ) {
     return this.portalTrainingsService.submitAssessment(participant.id, id, assessmentId, body);
@@ -46,7 +46,7 @@ export class PortalTrainingsController {
   @ApiOkResponse({ description: '{ ok, certificateIssued, certificateId }' })
   submitSurvey(
     @CurrentParticipant() participant: User,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: SubmitSurveyDto,
   ) {
     return this.portalTrainingsService.submitSurvey(participant.id, id, body);

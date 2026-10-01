@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -46,7 +46,7 @@ export class TrainingSessionsController {
   @ApiOperation({ summary: 'Get a training session with trainers/enrollments/certificates' })
   @ApiOkResponse({ description: 'TrainingSession' })
   @ApiNotFoundResponse({ description: 'Not found' })
-  get(@Param('id', ParseIntPipe) id: number) {
+  get(@Param('id', ParseUUIDPipe) id: string) {
     return this.sessionsService.getSession(id);
   }
 
@@ -54,7 +54,7 @@ export class TrainingSessionsController {
   @RequirePermission('trainings', 'update')
   @ApiOperation({ summary: 'Update session status/publish/toggles' })
   @ApiOkResponse({ description: 'TrainingSession' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateSessionDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateSessionDto) {
     return this.sessionsService.updateSession(id, body);
   }
 
@@ -62,7 +62,7 @@ export class TrainingSessionsController {
   @RequirePermission('trainings', 'update')
   @ApiOperation({ summary: 'Assign trainers to a session' })
   @ApiOkResponse({ description: '{ users }' })
-  assignTrainers(@Param('id', ParseIntPipe) id: number, @Body() body: AssignTrainersDto) {
+  assignTrainers(@Param('id', ParseUUIDPipe) id: string, @Body() body: AssignTrainersDto) {
     return this.sessionsService.assignTrainers(id, body);
   }
 
@@ -72,8 +72,8 @@ export class TrainingSessionsController {
   @ApiOkResponse({ description: 'SessionAssessment' })
   @ApiNotFoundResponse({ description: 'Not found' })
   updateAssessment(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('assessmentId', ParseIntPipe) assessmentId: number,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
     @Body() body: UpdateAssessmentEnabledDto,
   ) {
     return this.sessionsService.updateAssessmentEnabled(id, assessmentId, body);

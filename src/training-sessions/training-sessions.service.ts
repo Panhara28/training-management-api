@@ -58,7 +58,7 @@ export class TrainingSessionsService {
   createSession(data: CreateSessionDto) {
     return this.prisma.trainingSession.create({
       data: {
-        programId: Number(data.programId),
+        programId: data.programId,
         title: data.title,
         venue: data.venue,
         startDate: new Date(data.startDate),
@@ -69,7 +69,7 @@ export class TrainingSessionsService {
     });
   }
 
-  async getSession(id: number) {
+  async getSession(id: string) {
     const session = await this.prisma.trainingSession.findUnique({
       where: { id },
       include: {
@@ -95,7 +95,7 @@ export class TrainingSessionsService {
     return session;
   }
 
-  async updateSession(id: number, data: UpdateSessionDto) {
+  async updateSession(id: string, data: UpdateSessionDto) {
     await this.ensureSessionExists(id);
     return this.prisma.trainingSession.update({
       where: { id },
@@ -108,7 +108,7 @@ export class TrainingSessionsService {
     });
   }
 
-  async assignTrainers(id: number, data: AssignTrainersDto) {
+  async assignTrainers(id: string, data: AssignTrainersDto) {
     await this.ensureSessionExists(id);
     const userIds = data.userIds ?? [];
 
@@ -128,8 +128,8 @@ export class TrainingSessionsService {
   }
 
   async updateAssessmentEnabled(
-    sessionId: number,
-    assessmentId: number,
+    sessionId: string,
+    assessmentId: string,
     data: UpdateAssessmentEnabledDto,
   ) {
     const assessment = await this.prisma.sessionAssessment.findUnique({
@@ -154,7 +154,7 @@ export class TrainingSessionsService {
     });
   }
 
-  async trainerDetail(id: number) {
+  async trainerDetail(id: string) {
     const trainer = await this.prisma.user.findFirst({
       where: { id, role: 'TRAINER' },
       include: {
@@ -345,7 +345,7 @@ export class TrainingSessionsService {
     return { sessionId: session.id };
   }
 
-  async getTraining(id: number) {
+  async getTraining(id: string) {
     const session = await this.prisma.trainingSession.findUnique({
       where: { id },
       include: {
@@ -414,7 +414,7 @@ export class TrainingSessionsService {
     };
   }
 
-  async updateTraining(id: number, body: CreateTrainingDto) {
+  async updateTraining(id: string, body: CreateTrainingDto) {
     const existing = await this.prisma.trainingSession.findUnique({
       where: { id },
       select: { id: true, programId: true },
@@ -518,7 +518,7 @@ export class TrainingSessionsService {
 
   // ─── /api/trainings/:id/document (invitation PDF) ────────────────────────
 
-  async document(id: number): Promise<Buffer> {
+  async document(id: string): Promise<Buffer> {
     const session = await this.prisma.trainingSession.findUnique({ where: { id } });
     if (!session) throw new NotFoundException({ error: 'Training not found.' });
 
@@ -546,7 +546,7 @@ export class TrainingSessionsService {
 
   // ─── /api/trainings/:id/analytics ────────────────────────────────────────
 
-  async analytics(sessionId: number) {
+  async analytics(sessionId: string) {
     const exists = await this.prisma.trainingSession.count({ where: { id: sessionId } });
     if (!exists) throw new NotFoundException({ error: 'Training not found.' });
 
@@ -711,7 +711,7 @@ export class TrainingSessionsService {
 
   // ─── /api/trainings/:id/seed-analytics (dev/demo helper) ────────────────
 
-  async seedAnalytics(sessionId: number) {
+  async seedAnalytics(sessionId: string) {
     // Demo helper that writes fake responses — never available unless explicitly enabled.
     if (process.env.ENABLE_DEMO_TOOLS !== 'true') {
       throw new NotFoundException({ error: 'Not found' });
@@ -904,7 +904,7 @@ export class TrainingSessionsService {
     return 5;
   }
 
-  private async ensureSessionExists(id: number) {
+  private async ensureSessionExists(id: string) {
     const exists = await this.prisma.trainingSession.findUnique({ where: { id }, select: { id: true } });
     if (!exists) throw new NotFoundException({ error: 'Not found' });
   }

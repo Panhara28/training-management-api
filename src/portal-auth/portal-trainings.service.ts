@@ -12,7 +12,7 @@ export class PortalTrainingsService {
     private readonly certificateDocumentService: CertificateDocumentService,
   ) {}
 
-  async listTrainings(userId: number) {
+  async listTrainings(userId: string) {
     const enrollments = await this.prisma.enrollment.findMany({
       where: { userId },
       include: {
@@ -44,7 +44,7 @@ export class PortalTrainingsService {
     }));
   }
 
-  async getTraining(userId: number, sessionId: number) {
+  async getTraining(userId: string, sessionId: string) {
     const enrollment = await this.getEnrollmentOrThrow(userId, sessionId);
 
     const trainingSession = await this.prisma.trainingSession.findUnique({
@@ -163,7 +163,7 @@ export class PortalTrainingsService {
     };
   }
 
-  async submitAssessment(userId: number, sessionId: number, assessmentId: number, body: SubmitAssessmentDto) {
+  async submitAssessment(userId: string, sessionId: string, assessmentId: string, body: SubmitAssessmentDto) {
     const enrollment = await this.getEnrollmentOrThrow(userId, sessionId);
 
     const assessment = await this.prisma.sessionAssessment.findUnique({
@@ -231,7 +231,7 @@ export class PortalTrainingsService {
     };
   }
 
-  async submitSurvey(userId: number, sessionId: number, body: SubmitSurveyDto) {
+  async submitSurvey(userId: string, sessionId: string, body: SubmitSurveyDto) {
     const enrollment = await this.getEnrollmentOrThrow(userId, sessionId);
 
     const trainingSession = await this.prisma.trainingSession.findUnique({
@@ -281,7 +281,7 @@ export class PortalTrainingsService {
     return { ok: true, certificateIssued: !!certificate, certificateId: certificate?.id ?? null };
   }
 
-  async listCertificates(userId: number) {
+  async listCertificates(userId: string) {
     const certificates = await this.prisma.certificate.findMany({
       where: { userId },
       include: { session: { include: { program: true } } },
@@ -297,7 +297,7 @@ export class PortalTrainingsService {
     }));
   }
 
-  async certificateDocument(userId: number, certificateId: number): Promise<Buffer> {
+  async certificateDocument(userId: string, certificateId: string): Promise<Buffer> {
     const certificate = await this.prisma.certificate.findUnique({
       where: { id: certificateId },
       include: CERTIFICATE_DOCUMENT_INCLUDE,
@@ -309,7 +309,7 @@ export class PortalTrainingsService {
     return this.certificateDocumentService.buildCertificatePdf(data);
   }
 
-  private async getEnrollmentOrThrow(userId: number, sessionId: number) {
+  private async getEnrollmentOrThrow(userId: string, sessionId: string) {
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { userId_sessionId: { userId, sessionId } },
     });

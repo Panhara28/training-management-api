@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async log(params: { userId?: number | null; action: string; detail?: string; ipAddress?: string | null }) {
+  async log(params: { userId?: string | null; action: string; detail?: string; ipAddress?: string | null }) {
     await this.prisma.auditLog.create({
       data: {
         userId: params.userId ?? null,

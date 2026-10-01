@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { formatCertificateNo } from '../lib/certificate-eligibility';
+import { issueCertificate } from '../lib/certificate-eligibility';
 import { CERTIFICATE_DOCUMENT_INCLUDE, CertificateDocumentService } from '../documents/certificate-document.service';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 
@@ -14,8 +14,8 @@ export class CertificatesService {
   list(userId?: string, sessionId?: string) {
     return this.prisma.certificate.findMany({
       where: {
-        ...(userId ? { userId: Number(userId) } : {}),
-        ...(sessionId ? { sessionId: Number(sessionId) } : {}),
+        ...(userId ? { userId } : {}),
+        ...(sessionId ? { sessionId } : {}),
       },
       include: {
         user: { select: { id: true, fullName: true, email: true } },
@@ -35,17 +35,16 @@ export class CertificatesService {
 
   async create(data: CreateCertificateDto) {
     const enrollment = await this.prisma.enrollment.findUnique({
-      where: { userId_sessionId: { userId: Number(data.userId), sessionId: Number(data.sessionId) } },
+      where: { userId_sessionId: { userId: data.userId, sessionId: data.sessionId } },
     });
     if (!enrollment || enrollment.status !== 'ATTENDED') {
       throw new UnprocessableEntityException({ error: 'Participant has not attended this session' });
     }
 
-    const certNo = formatCertificateNo(Number(data.sessionId), Number(data.userId));
-    return this.prisma.certificate.upsert({
-      where: { certificateNo: certNo },
-      update: {},
-      create: { userId: Number(data.userId), sessionId: Number(data.sessionId), certificateNo: certNo },
+    const certificate = await issueCertificate(this.prisma, data.userId, data.sessionId);
+    if (!certificate) throw new NotFoundException({ error: 'Session not found' });
+    return this.prisma.certificate.findUnique({
+      where: { id: certificate.id },
       include: {
         user: { select: { fullName: true } },
         session: { select: { title: true } },
@@ -71,15 +70,15 @@ export class CertificatesService {
     };
   }
 
-  async document(id: number): Promise<Buffer> {
+  async document(id: string): Promise<Buffer> {
     return this.documentService.buildCertificatePdf(await this.documentData(id));
   }
 
-  async preview(id: number): Promise<Buffer> {
+  async preview(id: string): Promise<Buffer> {
     return this.documentService.buildCertificateJpeg(await this.documentData(id));
   }
 
-  private async documentData(id: number) {
+  private async documentData(id: string) {
     const certificate = await this.prisma.certificate.findUnique({
       where: { id },
       include: CERTIFICATE_DOCUMENT_INCLUDE,
@@ -89,7 +88,7 @@ export class CertificatesService {
   }
 
   // Every issued certificate of one training batch, one page each.
-  async sessionDocument(sessionId: number): Promise<Buffer> {
+  async sessionDocument(sessionId: string): Promise<Buffer> {
     const certificates = await this.prisma.certificate.findMany({
       where: { sessionId },
       include: CERTIFICATE_DOCUMENT_INCLUDE,

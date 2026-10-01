@@ -63,7 +63,7 @@ enum SurveyQuestionType {
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model Department {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid(7)) @db.Char(36)
   name      String   @unique
   createdAt DateTime @default(now())
 
@@ -71,7 +71,7 @@ model Department {
 }
 
 model User {
-  id                Int      @id @default(autoincrement())
+  id                String   @id @default(uuid(7)) @db.Char(36)
   username          String   @unique
   email             String   @unique
   passwordHash      String
@@ -82,8 +82,8 @@ model User {
   currentRole       String?
   phoneNumber       String?
   role              Role     @default(PARTICIPANT)
-  departmentId      Int?
-  staffRoleId       Int?
+  departmentId      String?  @db.Char(36)
+  staffRoleId       String?  @db.Char(36)
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -97,7 +97,7 @@ model User {
 }
 
 model StaffRole {
-  id          Int      @id @default(autoincrement())
+  id          String   @id @default(uuid(7)) @db.Char(36)
   name        String   @unique
   slug        String   @unique
   description String?
@@ -109,8 +109,8 @@ model StaffRole {
 }
 
 model PermissionModule {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
+  id          String  @id @default(uuid(7)) @db.Char(36)
+  name        String  @unique
   label       String
   description String?
 
@@ -118,8 +118,8 @@ model PermissionModule {
 }
 
 model StaffRolePermission {
-  staffRoleId Int
-  moduleId    Int
+  staffRoleId String  @db.Char(36)
+  moduleId    String  @db.Char(36)
   create      Boolean @default(false)
   read        Boolean @default(false)
   update      Boolean @default(false)
@@ -132,15 +132,15 @@ model StaffRolePermission {
 }
 
 model LoginAttempt {
-  id             Int      @id @default(autoincrement())
+  id             String   @id @default(uuid(7)) @db.Char(36)
   key            String   @unique
   count          Int      @default(1)
   firstAttemptAt DateTime @default(now())
 }
 
 model AuditLog {
-  id        Int      @id @default(autoincrement())
-  userId    Int?
+  id        String   @id @default(uuid(7)) @db.Char(36)
+  userId    String?  @db.Char(36)
   action    String
   detail    String?
   ipAddress String?
@@ -150,7 +150,7 @@ model AuditLog {
 }
 
 model TrainingProgram {
-  id           Int      @id @default(autoincrement())
+  id           String   @id @default(uuid(7)) @db.Char(36)
   code         String   @unique
   title        String
   description  String?
@@ -163,8 +163,11 @@ model TrainingProgram {
 }
 
 model TrainingSession {
-  id               Int           @id @default(autoincrement())
-  programId        Int
+  id               String        @id @default(uuid(7)) @db.Char(36)
+  // Human-readable running number, used as the first part of certificate
+  // numbers (TTRI-<serialNo>-<certificate serialNo>).
+  serialNo         Int           @unique @default(autoincrement())
+  programId        String        @db.Char(36)
   title            String
   titleKh          String?
   batchNo          Int?
@@ -194,8 +197,8 @@ model TrainingSession {
 }
 
 model TrainerOnSession {
-  userId     Int
-  sessionId  Int
+  userId     String   @db.Char(36)
+  sessionId  String   @db.Char(36)
   assignedAt DateTime @default(now())
 
   user    User            @relation(fields: [userId], references: [id])
@@ -205,9 +208,9 @@ model TrainerOnSession {
 }
 
 model Enrollment {
-  id         Int              @id @default(autoincrement())
-  userId     Int
-  sessionId  Int
+  id         String           @id @default(uuid(7)) @db.Char(36)
+  userId     String           @db.Char(36)
+  sessionId  String           @db.Char(36)
   status     EnrollmentStatus @default(ENROLLED)
   score      Float?
   enrolledAt DateTime         @default(now())
@@ -222,19 +225,24 @@ model Enrollment {
 }
 
 model Certificate {
-  id            Int      @id @default(autoincrement())
-  userId        Int
-  sessionId     Int
+  id            String   @id @default(uuid(7)) @db.Char(36)
+  userId        String   @db.Char(36)
+  sessionId     String   @db.Char(36)
+  // Running number within the training session; the last part of certificateNo.
+  serialNo      Int
   certificateNo String   @unique
   issuedAt      DateTime @default(now())
 
   user    User            @relation(fields: [userId], references: [id])
   session TrainingSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([userId, sessionId])
+  @@unique([sessionId, serialNo])
 }
 
 model SessionAgendaItem {
-  id          Int     @id @default(autoincrement())
-  sessionId   Int
+  id          String  @id @default(uuid(7)) @db.Char(36)
+  sessionId   String  @db.Char(36)
   day         Int
   timeFrom    String
   timeTo      String
@@ -247,8 +255,8 @@ model SessionAgendaItem {
 }
 
 model SessionMaterial {
-  id        Int          @id @default(autoincrement())
-  sessionId Int
+  id        String       @id @default(uuid(7)) @db.Char(36)
+  sessionId String       @db.Char(36)
   type      MaterialType
   title     String
   value     String?
@@ -258,8 +266,8 @@ model SessionMaterial {
 }
 
 model SessionAssessment {
-  id        Int                @id @default(autoincrement())
-  sessionId Int
+  id        String             @id @default(uuid(7)) @db.Char(36)
+  sessionId String             @db.Char(36)
   category  AssessmentCategory
   passScore Int                @default(70)
   enabled   Boolean            @default(false)
@@ -270,8 +278,8 @@ model SessionAssessment {
 }
 
 model AssessmentQuestion {
-  id            Int          @id @default(autoincrement())
-  assessmentId  Int
+  id            String       @id @default(uuid(7)) @db.Char(36)
+  assessmentId  String       @db.Char(36)
   type          QuestionType
   text          String
   correctOption String?
@@ -284,8 +292,8 @@ model AssessmentQuestion {
 }
 
 model QuestionOption {
-  id         Int    @id @default(autoincrement())
-  questionId Int
+  id         String @id @default(uuid(7)) @db.Char(36)
+  questionId String @db.Char(36)
   text       String
   order      Int    @default(0)
 
@@ -293,8 +301,8 @@ model QuestionOption {
 }
 
 model SessionSurveyQuestion {
-  id        Int                @id @default(autoincrement())
-  sessionId Int
+  id        String             @id @default(uuid(7)) @db.Char(36)
+  sessionId String             @db.Char(36)
   type      SurveyQuestionType
   text      String
   required  Boolean            @default(false)
@@ -306,8 +314,8 @@ model SessionSurveyQuestion {
 }
 
 model SurveyQuestionOption {
-  id         Int    @id @default(autoincrement())
-  questionId Int
+  id         String @id @default(uuid(7)) @db.Char(36)
+  questionId String @db.Char(36)
   text       String
   order      Int    @default(0)
 
@@ -315,9 +323,9 @@ model SurveyQuestionOption {
 }
 
 model AssessmentResponse {
-  id           Int      @id @default(autoincrement())
-  enrollmentId Int
-  assessmentId Int
+  id           String   @id @default(uuid(7)) @db.Char(36)
+  enrollmentId String   @db.Char(36)
+  assessmentId String   @db.Char(36)
   score        Float
   submittedAt  DateTime @default(now())
 
@@ -329,9 +337,9 @@ model AssessmentResponse {
 }
 
 model AssessmentAnswer {
-  id           Int     @id @default(autoincrement())
-  responseId   Int
-  questionId   Int
+  id           String  @id @default(uuid(7)) @db.Char(36)
+  responseId   String  @db.Char(36)
+  questionId   String  @db.Char(36)
   chosenOption String?
   textAnswer   String?
   isCorrect    Boolean @default(false)
@@ -341,9 +349,9 @@ model AssessmentAnswer {
 }
 
 model SurveyResponse {
-  id           Int      @id @default(autoincrement())
-  enrollmentId Int
-  sessionId    Int
+  id           String   @id @default(uuid(7)) @db.Char(36)
+  enrollmentId String   @db.Char(36)
+  sessionId    String   @db.Char(36)
   submittedAt  DateTime @default(now())
 
   enrollment Enrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
@@ -354,9 +362,9 @@ model SurveyResponse {
 }
 
 model SurveyAnswer {
-  id         Int     @id @default(autoincrement())
-  responseId Int
-  questionId Int
+  id         String  @id @default(uuid(7)) @db.Char(36)
+  responseId String  @db.Char(36)
+  questionId String  @db.Char(36)
   rating     Int?
   textAnswer String?
   choices    String?

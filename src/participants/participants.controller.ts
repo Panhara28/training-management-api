@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiForbiddenResponse, ApiUnauthorizedResponse, ApiNotFoundResponse } from '@nestjs/swagger';
 import { StaffAuthGuard } from '../common/guards/staff-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -26,7 +26,7 @@ export class ParticipantsController {
   @ApiOperation({ summary: 'Get participant detail with enrollments and certificates (admin)' })
   @ApiOkResponse({ description: 'ParticipantDetail' })
   @ApiNotFoundResponse({ description: 'Not found' })
-  detail(@Param('id', ParseIntPipe) id: number) {
+  detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.participantsService.detail(id);
   }
 }

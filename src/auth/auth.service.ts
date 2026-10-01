@@ -104,7 +104,7 @@ export class AuthService {
     return { accessToken: signAccessToken(user.id, user.staffRoleId) };
   }
 
-  async me(userId: number | null) {
+  async me(userId: string | null) {
     if (userId === null) return { user: null, permissions: {} };
 
     const user = await this.prisma.user.findUnique({

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -48,7 +48,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get a staff user' })
   @ApiOkResponse({ description: 'User' })
   @ApiNotFoundResponse({ description: 'Not found' })
-  detail(@Param('id', ParseIntPipe) id: number) {
+  detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.detail(id);
   }
 
@@ -57,7 +57,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update a staff user' })
   @ApiOkResponse({ description: 'User' })
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateUserDto,
     @CurrentStaff() staff: AuthenticatedStaff,
   ) {
@@ -68,7 +68,7 @@ export class UsersController {
   @RequirePermission('users', 'delete')
   @ApiOperation({ summary: 'Delete a staff user' })
   @ApiOkResponse({ description: '{ ok: true }' })
-  remove(@Param('id', ParseIntPipe) id: number, @CurrentStaff() staff: AuthenticatedStaff) {
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentStaff() staff: AuthenticatedStaff) {
     return this.usersService.remove(id, staff.userId);
   }
 }

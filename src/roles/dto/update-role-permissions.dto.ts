@@ -1,12 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsInt, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsUUID, ValidateNested } from 'class-validator';
 
 export class PermissionFlagDto {
-  @ApiProperty()
-  @Type(() => Number)
-  @IsInt()
-  moduleId!: number;
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  moduleId!: string;
 
   @ApiProperty()
   @IsBoolean()

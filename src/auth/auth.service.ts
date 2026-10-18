@@ -55,16 +55,26 @@ export class AuthService {
   // When the sign-in was started from a public registration form, nothing is
   // looked up or signed in: the AAS profile is handed back to pre-fill the form.
   async mocOauthLogin(code: string, state: string, pkceCookie: string | undefined, ip: string) {
+    // Same per-IP lockout as the password login, keyed separately so a
+    // flood of bogus AAS callbacks can't be used to brute-force anything.
+    const rateLimit = await checkRateLimit(this.prisma, ip, 'moc-oauth');
+    if (rateLimit.blocked) {
+      throw new HttpException({ error: 'Too many sign-in attempts. Please try again later.' }, 429);
+    }
+
     const pkce = resolvePkceState(state, pkceCookie);
     if (!pkce) {
+      await recordFailedAttempt(this.prisma, ip, 'moc-oauth');
       throw new UnauthorizedException({ error: 'Invalid or expired login session. Please try again.' });
     }
 
     const result = await getMocOAuthClient().validateAuthorizationCode({ code, codeVerifier: pkce.codeVerifier });
     if (!result.success || !result.data.isValid || !result.data.payload) {
+      await recordFailedAttempt(this.prisma, ip, 'moc-oauth');
       await this.audit.log({ userId: null, action: 'auth.moc_oauth.failed', ipAddress: ip });
       throw new UnauthorizedException({ error: 'AAS authentication failed. Please try again.' });
     }
+    await clearAttempts(this.prisma, ip, 'moc-oauth');
 
     if (pkce.registerFor) {
       const profile = result.data.payload;

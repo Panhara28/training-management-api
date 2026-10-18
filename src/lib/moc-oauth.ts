@@ -27,6 +27,19 @@ export function getMocOAuthClient(): MOCOAuthClient {
   return client;
 }
 
+// Lets a deployment hide the "Login with AAS Officer Account" button (e.g.
+// while AAS isn't configured, or a site wants username/password only)
+// without a rebuild — the login pages ask this at render time.
+export function isMocOAuthEnabled(): boolean {
+  if (process.env.MOC_OAUTH_ENABLED === 'false') return false;
+  return Boolean(
+    process.env.MOC_OAUTH_BASE_URL &&
+      process.env.MOC_OAUTH_CLIENT_ID &&
+      process.env.MOC_OAUTH_CLIENT_SECRET &&
+      process.env.MOC_OAUTH_REDIRECT_URI,
+  );
+}
+
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error('JWT_SECRET environment variable is not set');

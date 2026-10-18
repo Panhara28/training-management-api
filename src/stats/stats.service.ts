@@ -45,24 +45,31 @@ export class StatsService {
     return rows.map((r) => r.sessionId);
   }
 
-  /** Trainer-scoped overview for the admin dashboard page. */
-  async dashboardOverview(staff: AuthenticatedStaff) {
-    const cacheKey = staff.role === 'TRAINER' ? `trainer:${staff.userId}` : 'global';
+  /** Trainer-scoped overview for the admin dashboard page, optionally scoped to one training. */
+  async dashboardOverview(staff: AuthenticatedStaff, sessionId?: string) {
+    const cacheKey = `${staff.role === 'TRAINER' ? `trainer:${staff.userId}` : 'global'}:${sessionId ?? 'all'}`;
     const cached = this.overviewCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data;
     }
 
-    const result = await this.computeDashboardOverview(staff);
+    const result = await this.computeDashboardOverview(staff, sessionId);
     this.overviewCache.set(cacheKey, { expiresAt: Date.now() + OVERVIEW_CACHE_TTL_MS, data: result });
     return result;
   }
 
-  private async computeDashboardOverview(staff: AuthenticatedStaff) {
+  private async computeDashboardOverview(staff: AuthenticatedStaff, sessionId?: string) {
     const isTrainer = staff.role === 'TRAINER';
     const assignedIds = isTrainer ? await this.getAssignedSessionIds(staff.userId) : null;
-    const sessionFilter = assignedIds ? { id: { in: assignedIds } } : {};
-    const sessionIdFilter = assignedIds ? { sessionId: { in: assignedIds } } : {};
+    // A session filter picked on the dashboard narrows further on top of the
+    // trainer's own assignment scope (a trainer can never see outside it).
+    const scopedIds = sessionId
+      ? assignedIds
+        ? assignedIds.filter((id) => id === sessionId)
+        : [sessionId]
+      : assignedIds;
+    const sessionFilter = scopedIds ? { id: { in: scopedIds } } : {};
+    const sessionIdFilter = scopedIds ? { sessionId: { in: scopedIds } } : {};
 
     const [
       totalTrainings,
@@ -75,9 +82,10 @@ export class StatsService {
       sessionsWithProgram,
       assessmentResponses,
       enrollmentsByMonth,
+      singleSessionCapacity,
     ] = await Promise.all([
       this.prisma.trainingSession.count({ where: sessionFilter }),
-      assignedIds
+      scopedIds
         ? this.prisma.enrollment
             .findMany({ where: sessionIdFilter, select: { userId: true }, distinct: ['userId'] })
             .then((rows) => rows.length)
@@ -97,10 +105,16 @@ export class StatsService {
         include: { program: { select: { category: true } }, _count: { select: { enrollments: true } } },
       }),
       this.prisma.assessmentResponse.findMany({
-        where: assignedIds ? { enrollment: { sessionId: { in: assignedIds } } } : {},
+        where: scopedIds ? { enrollment: { sessionId: { in: scopedIds } } } : {},
         include: { assessment: { select: { category: true, passScore: true } } },
       }),
       this.prisma.enrollment.findMany({ where: sessionIdFilter, select: { enrolledAt: true } }),
+      scopedIds && scopedIds.length === 1
+        ? this.prisma.trainingSession.findUnique({
+            where: { id: scopedIds[0] },
+            select: { maxCapacity: true, _count: { select: { enrollments: true } } },
+          })
+        : Promise.resolve(null),
     ]);
 
     const statusColors: Record<string, string> = {
@@ -112,6 +126,7 @@ export class StatsService {
 
     const recentTrainings = recentSessions.map((s) => ({
       name: s.title,
+      nameKh: s.titleKh,
       date: s.startDate.toISOString(),
       participants: s._count.enrollments,
       statusKey: s.status,
@@ -168,6 +183,11 @@ export class StatsService {
           )
         : 0;
 
+    const registrationRate =
+      singleSessionCapacity && singleSessionCapacity.maxCapacity > 0
+        ? Math.round((singleSessionCapacity._count.enrollments / singleSessionCapacity.maxCapacity) * 100)
+        : null;
+
     return {
       stats: {
         totalTrainings,
@@ -177,6 +197,7 @@ export class StatsService {
       },
       avgAttendance,
       overallPassRate,
+      registrationRate,
       recentTrainings,
       sessionStatusData,
       sessionsByCategory,
@@ -185,8 +206,12 @@ export class StatsService {
     };
   }
 
-  /** Org-wide (unscoped) aggregate report for the reports page. */
-  async reportsOverview() {
+  /** Org-wide aggregate report for the reports page, optionally scoped to one training. */
+  async reportsOverview(sessionId?: string) {
+    const sessionWhere = sessionId ? { id: sessionId } : {};
+    const sessionIdWhere = sessionId ? { sessionId } : {};
+    const viaEnrollmentWhere = sessionId ? { enrollment: { sessionId } } : {};
+
     const [
       sessionStatusCounts,
       enrollmentStatusCounts,
@@ -196,18 +221,27 @@ export class StatsService {
       surveyAnswers,
       enrollmentsByMonth,
       certificatesByMonth,
+      evaluationDetail,
     ] = await Promise.all([
-      this.prisma.trainingSession.groupBy({ by: ['status'], _count: true }),
-      this.prisma.enrollment.groupBy({ by: ['status'], _count: true }),
+      this.prisma.trainingSession.groupBy({ by: ['status'], where: sessionWhere, _count: true }),
+      this.prisma.enrollment.groupBy({ by: ['status'], where: sessionIdWhere, _count: true }),
       this.prisma.trainingSession.findMany({
+        where: sessionWhere,
         include: { program: { select: { category: true, code: true } }, _count: { select: { enrollments: true } } },
         orderBy: { startDate: 'desc' },
       }),
-      this.prisma.certificate.findMany({ include: { user: { include: { department: true } } } }),
-      this.prisma.assessmentResponse.findMany({ include: { assessment: { select: { category: true, passScore: true } } } }),
-      this.prisma.surveyAnswer.findMany({ where: { rating: { not: null } }, select: { rating: true } }),
-      this.prisma.enrollment.findMany({ select: { enrolledAt: true } }),
-      this.prisma.certificate.findMany({ select: { issuedAt: true } }),
+      this.prisma.certificate.findMany({ where: sessionIdWhere, include: { user: { include: { department: true } } } }),
+      this.prisma.assessmentResponse.findMany({
+        where: viaEnrollmentWhere,
+        include: { assessment: { select: { category: true, passScore: true } } },
+      }),
+      this.prisma.surveyAnswer.findMany({
+        where: { rating: { not: null }, ...(sessionId ? { response: { sessionId } } : {}) },
+        select: { rating: true },
+      }),
+      this.prisma.enrollment.findMany({ where: sessionIdWhere, select: { enrolledAt: true } }),
+      this.prisma.certificate.findMany({ where: sessionIdWhere, select: { issuedAt: true } }),
+      sessionId ? this.sessionEvaluationDetail(sessionId) : Promise.resolve(null),
     ]);
 
     const sessionStatusData = sessionStatusCounts.map((s) => ({ status: s.status, count: s._count }));
@@ -239,6 +273,7 @@ export class StatsService {
       .map((s) => ({
         id: s.id,
         title: s.title,
+        titleKh: s.titleKh,
         category: s.program.category,
         enrolled: s._count.enrollments,
         status: s.status,
@@ -329,6 +364,59 @@ export class StatsService {
       avgAttendance: Math.round(
         ((enrollmentStatusCounts.find((e) => e.status === 'ATTENDED')?._count ?? 0) / (enrollmentsByMonth.length || 1)) * 100,
       ),
+      evaluationDetail,
     };
+  }
+
+  // Per-participant, per-item evaluation breakdown for one training — "for
+  // training A, who took the evaluation and what did they score on each item".
+  private async sessionEvaluationDetail(sessionId: string) {
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: { sessionId },
+      select: {
+        id: true,
+        user: { select: { id: true, fullName: true, fullNameKh: true } },
+        assessmentResponses: {
+          select: {
+            score: true,
+            assessment: { select: { category: true, passScore: true } },
+          },
+        },
+        surveyResponses: {
+          select: {
+            answers: {
+              select: {
+                rating: true,
+                textAnswer: true,
+                choices: true,
+                question: { select: { text: true, type: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { enrolledAt: 'asc' },
+    });
+
+    return enrollments.map((e) => ({
+      participantId: e.user.id,
+      participantName: e.user.fullName,
+      participantNameKh: e.user.fullNameKh,
+      assessments: e.assessmentResponses.map((ar) => ({
+        category: ar.assessment.category,
+        score: ar.score,
+        passScore: ar.assessment.passScore,
+        passed: ar.score >= ar.assessment.passScore,
+      })),
+      surveyAnswers: e.surveyResponses.flatMap((sr) =>
+        sr.answers.map((a) => ({
+          question: a.question.text,
+          type: a.question.type,
+          rating: a.rating,
+          textAnswer: a.textAnswer,
+          choices: a.choices,
+        })),
+      ),
+    }));
   }
 }

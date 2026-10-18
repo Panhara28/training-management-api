@@ -15,6 +15,12 @@ enum Role {
   PARTICIPANT
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
 enum SessionStatus {
   UPCOMING
   ONGOING
@@ -81,6 +87,7 @@ model User {
   departmentOffice  String?
   currentRole       String?
   phoneNumber       String?
+  gender            Gender?
   role              Role     @default(PARTICIPANT)
   departmentId      String?  @db.Char(36)
   staffRoleId       String?  @db.Char(36)
@@ -153,6 +160,7 @@ model TrainingProgram {
   id           String   @id @default(uuid(7)) @db.Char(36)
   code         String   @unique
   title        String
+  titleKh      String?
   description  String?
   category     String
   durationDays Int
@@ -160,6 +168,17 @@ model TrainingProgram {
   updatedAt    DateTime @updatedAt
 
   sessions TrainingSession[]
+}
+
+// Lookup table backing the Category select on the New Training form, so staff
+// can add a category inline (with a Khmer name) instead of being stuck with a
+// fixed list. TrainingProgram.category stays a free string (matched against
+// this table's `name`) to avoid a breaking FK migration on existing data.
+model TrainingCategory {
+  id        String   @id @default(uuid(7)) @db.Char(36)
+  name      String   @unique
+  nameKh    String?
+  createdAt DateTime @default(now())
 }
 
 model TrainingSession {

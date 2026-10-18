@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -35,5 +35,13 @@ export class ProgramsController {
   @ApiCreatedResponse({ description: 'TrainingProgram' })
   create(@Body() body: CreateProgramDto) {
     return this.programsService.create(body);
+  }
+
+  @Get('next-code')
+  @RequirePermission('trainings', 'read')
+  @ApiOperation({ summary: 'Preview the next auto-generated program code for a category (non-authoritative)' })
+  @ApiOkResponse({ description: '{ code }' })
+  nextCode(@Query('category') category: string) {
+    return this.programsService.nextCode(category || 'General');
   }
 }

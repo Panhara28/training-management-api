@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { ProgramsModule } from './programs/programs.module';
+import { CategoriesModule } from './categories/categories.module';
 import { TrainingSessionsModule } from './training-sessions/training-sessions.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { CertificatesModule } from './certificates/certificates.module';
@@ -38,6 +39,7 @@ import { StorageModule } from './storage/storage.module';
     RolesModule,
     DepartmentsModule,
     ProgramsModule,
+    CategoriesModule,
     TrainingSessionsModule,
     EnrollmentsModule,
     CertificatesModule,

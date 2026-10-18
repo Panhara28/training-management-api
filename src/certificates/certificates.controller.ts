@@ -25,10 +25,28 @@ export class CertificatesController {
   @RequirePermission('certificates', 'read')
   @ApiUnauthorizedResponse({ description: 'Not authenticated' })
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
-  @ApiOperation({ summary: 'List certificates, optionally filtered by participant/session' })
-  @ApiOkResponse({ description: 'Certificate[]' })
-  list(@Query('userId') userId?: string, @Query('sessionId') sessionId?: string) {
-    return this.certificatesService.list(userId, sessionId);
+  @ApiOperation({ summary: 'List certificates (paginated), filterable by participant/training/category/search' })
+  @ApiOkResponse({ description: '{ total, page, pageSize, items: Certificate[] }' })
+  list(
+    @Query('userId') userId?: string,
+    @Query('sessionId') sessionId?: string,
+    @Query('category') category?: string,
+    @Query('search') search?: string,
+    @Query('sortKey') sortKey?: string,
+    @Query('sortDir') sortDir?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.certificatesService.list({
+      userId,
+      sessionId,
+      category,
+      search,
+      sortKey,
+      sortDir,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Post()
@@ -47,6 +65,30 @@ export class CertificatesController {
   @ApiOkResponse({ description: '{ valid, recipientName?, courseTitle?, issuedAt? }' })
   verify(@Param('certificateNo') certificateNo: string) {
     return this.certificatesService.verify(certificateNo);
+  }
+
+  @Get('session/:sessionId/summary')
+  @UseGuards(StaffAuthGuard, PermissionsGuard)
+  @RequirePermission('certificates', 'read')
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
+  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  @ApiOperation({ summary: 'Certificate issuance summary (issued/pending) for one training' })
+  @ApiNotFoundResponse({ description: 'Training not found' })
+  sessionSummary(@Param('sessionId', ParseUUIDPipe) sessionId: string) {
+    return this.certificatesService.sessionSummary(sessionId);
+  }
+
+  @Get('session/:sessionId/export')
+  @UseGuards(StaffAuthGuard, PermissionsGuard)
+  @RequirePermission('certificates', 'read')
+  @ApiUnauthorizedResponse({ description: 'Not authenticated' })
+  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  @ApiOperation({ summary: 'Download participants issued a certificate for one training (CSV)' })
+  async sessionExport(@Param('sessionId', ParseUUIDPipe) sessionId: string, @Res() res: Response) {
+    const csv = await this.certificatesService.sessionExport(sessionId);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="certificates-${sessionId}.csv"`);
+    res.send(csv);
   }
 
   @Get('session/:sessionId/document')

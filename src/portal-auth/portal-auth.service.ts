@@ -19,7 +19,12 @@ export class PortalAuthService {
       throw new HttpException({ error: 'Too many login attempts. Please try again later.' }, 429);
     }
 
-    const user = await this.prisma.user.findUnique({ where: { username } });
+    // Self-registered participants get a username derived from their email
+    // that they never see, so the email they registered with works too.
+    const identifier = username.trim();
+    const user = await this.prisma.user.findFirst({
+      where: { OR: [{ username: identifier }, { email: identifier.toLowerCase() }] },
+    });
 
     if (!user || user.role !== 'PARTICIPANT' || !verifyPassword(password, user.passwordHash)) {
       await recordFailedAttempt(this.prisma, ip, key);

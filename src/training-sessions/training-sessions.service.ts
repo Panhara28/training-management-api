@@ -10,6 +10,7 @@ import { CreateTrainingDto } from './dto/training-payload.dto';
 import { TrainingInvitationDocumentService } from '../documents/training-invitation-document.service';
 import { formatKhmerGregorianDate, toKhmerNumeral } from '../lib/khmer-date';
 import { hashPassword } from '../lib/crypto';
+import { createProgramWithGeneratedCode } from '../lib/program-code';
 
 // Organizational constants not tracked in the schema — same for every training invitation.
 const PRESIDING_OFFICIAL = 'ឯកឧត្តម គវ៉េង សុធី រដ្ឋលេខាធិការក្រសួងពាណិជ្ជកម្ម';
@@ -83,7 +84,11 @@ export class TrainingSessionsService {
               select: {
                 id: true,
                 fullName: true,
+                fullNameKh: true,
                 email: true,
+                currentRole: true,
+                generalDepartment: true,
+                departmentOffice: true,
                 department: { select: { name: true } },
               },
             },
@@ -209,10 +214,10 @@ export class TrainingSessionsService {
   // ─── /api/trainings (composite) ──────────────────────────────────────────
 
   private validateTrainingBody(body: CreateTrainingDto) {
-    const { programCode, category, trainingTitle, startDate, endDate, venue } = body;
-    if (!programCode || !category || !trainingTitle || !startDate || !endDate || !venue) {
+    const { category, trainingTitle, startDate, endDate, venue } = body;
+    if (!category || !trainingTitle || !startDate || !endDate || !venue) {
       throw new BadRequestException({
-        error: 'Program code, category, title, start date, end date and venue are required.',
+        error: 'Category, title, start date, end date and venue are required.',
       });
     }
     const start = new Date(startDate);
@@ -221,6 +226,14 @@ export class TrainingSessionsService {
       throw new BadRequestException({ error: 'Invalid date range.' });
     }
     return { start, end };
+  }
+
+  private async ensureCategoryExists(category: string) {
+    const name = category.trim();
+    const existing = await this.prisma.trainingCategory.findFirst({ where: { name: { equals: name } } });
+    if (!existing) {
+      await this.prisma.trainingCategory.create({ data: { name } });
+    }
   }
 
   private certificateFields(body: CreateTrainingDto) {
@@ -236,21 +249,12 @@ export class TrainingSessionsService {
     const { start, end } = this.validateTrainingBody(body);
     const durationDays = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
 
-    const program = await this.prisma.trainingProgram.upsert({
-      where: { code: body.programCode },
-      update: {
-        title: body.trainingTitle,
-        description: body.description ?? null,
-        category: body.category,
-        durationDays,
-      },
-      create: {
-        code: body.programCode,
-        title: body.trainingTitle,
-        description: body.description ?? null,
-        category: body.category,
-        durationDays,
-      },
+    await this.ensureCategoryExists(body.category);
+    const program = await createProgramWithGeneratedCode(this.prisma, body.category, {
+      title: body.trainingTitle,
+      titleKh: body.trainingTitleKh?.trim() || null,
+      description: body.description ?? null,
+      durationDays,
     });
 
     const session = await this.prisma.$transaction(async (tx) => {
@@ -430,6 +434,7 @@ export class TrainingSessionsService {
 
     const { start, end } = this.validateTrainingBody(body);
     const durationDays = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+    await this.ensureCategoryExists(body.category);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.trainingProgram.update({
@@ -593,7 +598,17 @@ export class TrainingSessionsService {
     const [enrollments, assessments, surveyQuestions, surveyResponses] = await Promise.all([
       this.prisma.enrollment.findMany({
         where: { sessionId },
-        include: { user: { select: { fullName: true, department: { select: { name: true } } } } },
+        include: {
+          user: {
+            select: {
+              fullName: true,
+              currentRole: true,
+              generalDepartment: true,
+              departmentOffice: true,
+              department: { select: { name: true } },
+            },
+          },
+        },
         orderBy: { enrolledAt: 'asc' },
       }),
       this.prisma.sessionAssessment.findMany({
@@ -626,6 +641,8 @@ export class TrainingSessionsService {
         id: e.id,
         name: e.user.fullName,
         department: e.user.department?.name ?? '—',
+        role: e.user.currentRole ?? '—',
+        departmentOffice: [e.user.generalDepartment, e.user.departmentOffice].filter(Boolean).join(' / ') || '—',
         status: e.status as string,
         score: e.score,
       })),

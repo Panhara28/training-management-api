@@ -53,9 +53,11 @@ export class TrainingPublicService {
           departmentOffice: body.departmentOffice.trim(),
           currentRole: body.currentRole.trim(),
           phoneNumber: body.phoneNumber.trim(),
-          // No login is issued for self-registration; this satisfies the required
-          // column with a hash nobody can derive a matching password for.
-          passwordHash: hashPassword(randomBytes(32).toString('hex')),
+          gender: body.gender ?? null,
+          // If the participant chose a password, they can use it to sign in
+          // to the portal later without AAS or a phone. Otherwise fall back
+          // to a hash nobody can derive, same as before.
+          passwordHash: hashPassword(body.password ?? randomBytes(32).toString('hex')),
           role: 'PARTICIPANT',
         },
       });

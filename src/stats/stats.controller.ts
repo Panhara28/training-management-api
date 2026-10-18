@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiForbiddenResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { StaffAuthGuard } from '../common/guards/staff-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -24,17 +24,17 @@ export class StatsController {
   }
 
   @Get('dashboard-overview')
-  @ApiOperation({ summary: 'Trainer-scoped overview for the admin dashboard page' })
+  @ApiOperation({ summary: 'Trainer-scoped overview for the admin dashboard page, optionally filtered to one training' })
   @ApiOkResponse({ description: 'DashboardOverview' })
-  dashboardOverview(@CurrentStaff() staff: AuthenticatedStaff) {
-    return this.statsService.dashboardOverview(staff);
+  dashboardOverview(@CurrentStaff() staff: AuthenticatedStaff, @Query('sessionId') sessionId?: string) {
+    return this.statsService.dashboardOverview(staff, sessionId || undefined);
   }
 
   @Get('reports-overview')
   @RequirePermission('reports', 'read')
-  @ApiOperation({ summary: 'Org-wide aggregate report' })
+  @ApiOperation({ summary: 'Org-wide aggregate report, optionally filtered to one training' })
   @ApiOkResponse({ description: 'ReportsOverview' })
-  reportsOverview() {
-    return this.statsService.reportsOverview();
+  reportsOverview(@Query('sessionId') sessionId?: string) {
+    return this.statsService.reportsOverview(sessionId || undefined);
   }
 }

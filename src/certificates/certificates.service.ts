@@ -1,8 +1,21 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { issueCertificate } from '../lib/certificate-eligibility';
 import { CERTIFICATE_DOCUMENT_INCLUDE, CertificateDocumentService } from '../documents/certificate-document.service';
+import { toCsv } from '../lib/csv';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
+
+export type ListCertificatesQuery = {
+  userId?: string;
+  sessionId?: string;
+  category?: string;
+  search?: string;
+  sortKey?: string;
+  sortDir?: string;
+  page?: number;
+  pageSize?: number;
+};
 
 @Injectable()
 export class CertificatesService {
@@ -11,26 +24,61 @@ export class CertificatesService {
     private readonly documentService: CertificateDocumentService,
   ) {}
 
-  list(userId?: string, sessionId?: string) {
-    return this.prisma.certificate.findMany({
-      where: {
-        ...(userId ? { userId } : {}),
-        ...(sessionId ? { sessionId } : {}),
-      },
-      include: {
-        user: { select: { id: true, fullName: true, email: true } },
-        session: {
-          select: {
-            id: true,
-            title: true,
-            startDate: true,
-            endDate: true,
-            program: { select: { code: true, title: true } },
+  async list(query: ListCertificatesQuery) {
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 10));
+    const search = query.search?.trim();
+    const where: Prisma.CertificateWhereInput = {
+      ...(query.userId ? { userId: query.userId } : {}),
+      ...(query.sessionId ? { sessionId: query.sessionId } : {}),
+      ...(query.category ? { session: { program: { category: query.category } } } : {}),
+      ...(search
+        ? {
+            OR: [
+              { certificateNo: { contains: search } },
+              { user: { fullName: { contains: search } } },
+              { user: { fullNameKh: { contains: search } } },
+              { session: { title: { contains: search } } },
+              { session: { titleKh: { contains: search } } },
+            ],
+          }
+        : {}),
+    };
+    const dir = query.sortDir === 'asc' ? 'asc' : 'desc';
+    const orderBy: Prisma.CertificateOrderByWithRelationInput =
+      query.sortKey === 'certificateNo'
+        ? { certificateNo: dir }
+        : query.sortKey === 'participant'
+          ? { user: { fullName: dir } }
+          : query.sortKey === 'training'
+            ? { session: { title: dir } }
+            : { issuedAt: dir };
+
+    const [total, items] = await Promise.all([
+      this.prisma.certificate.count({ where }),
+      this.prisma.certificate.findMany({
+        where,
+        include: {
+          user: {
+            select: { id: true, fullName: true, email: true, department: { select: { name: true } } },
+          },
+          session: {
+            select: {
+              id: true,
+              title: true,
+              titleKh: true,
+              startDate: true,
+              endDate: true,
+              program: { select: { code: true, title: true, category: true } },
+            },
           },
         },
-      },
-      orderBy: { issuedAt: 'desc' },
-    });
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+    return { total, page, pageSize, items };
   }
 
   async create(data: CreateCertificateDto) {
@@ -50,6 +98,74 @@ export class CertificatesService {
         session: { select: { title: true } },
       },
     });
+  }
+
+  // Issued-vs-pending summary for one training, for the Certificates page's
+  // per-training selector.
+  async sessionSummary(sessionId: string) {
+    const session = await this.prisma.trainingSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        id: true,
+        title: true,
+        titleKh: true,
+        _count: { select: { enrollments: true, certificates: true } },
+      },
+    });
+    if (!session) throw new NotFoundException({ error: 'Training not found.' });
+
+    const attended = await this.prisma.enrollment.count({ where: { sessionId, status: 'ATTENDED' } });
+    const issued = session._count.certificates;
+    // Pending = attended but not yet issued a certificate.
+    const pending = Math.max(0, attended - issued);
+
+    return {
+      sessionId: session.id,
+      title: session.title,
+      titleKh: session.titleKh,
+      totalEnrolled: session._count.enrollments,
+      attended,
+      issued,
+      pending,
+    };
+  }
+
+  async sessionExport(sessionId: string): Promise<string> {
+    const certificates = await this.prisma.certificate.findMany({
+      where: { sessionId },
+      include: {
+        user: {
+          select: { fullName: true, fullNameKh: true, email: true, phoneNumber: true, department: { select: { name: true } } },
+        },
+        session: { select: { title: true, titleKh: true } },
+      },
+      orderBy: { certificateNo: 'asc' },
+    });
+
+    return toCsv(
+      certificates.map((c) => ({
+        certificateNo: c.certificateNo,
+        name: c.user.fullName,
+        nameKh: c.user.fullNameKh ?? '',
+        email: c.user.email,
+        phone: c.user.phoneNumber ?? '',
+        department: c.user.department?.name ?? '',
+        training: c.session.title,
+        trainingKh: c.session.titleKh ?? '',
+        issuedAt: c.issuedAt.toISOString().slice(0, 10),
+      })),
+      [
+        { key: 'certificateNo', header: 'Certificate No' },
+        { key: 'name', header: 'Name' },
+        { key: 'nameKh', header: 'Name (Khmer)' },
+        { key: 'email', header: 'Email' },
+        { key: 'phone', header: 'Phone' },
+        { key: 'department', header: 'Department' },
+        { key: 'training', header: 'Training' },
+        { key: 'trainingKh', header: 'Training (Khmer)' },
+        { key: 'issuedAt', header: 'Issued At' },
+      ],
+    );
   }
 
   async verify(certificateNo: string) {

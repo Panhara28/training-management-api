@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import {
-  PrismaClient, Role, SessionStatus, EnrollmentStatus,
+  PrismaClient, Role, Gender, SessionStatus, EnrollmentStatus,
   AssessmentCategory, QuestionType, SurveyQuestionType, MaterialType,
 } from '@prisma/client';
 import { hashPassword } from '../src/lib/crypto';
@@ -142,22 +142,31 @@ async function main() {
 
   const participants = await Promise.all(
     [
-      { username: 'chan.mony', fullName: 'Chan Mony', email: 'chan.mony@gov.kh', deptIdx: 3 },
-      { username: 'rina.pich', fullName: 'Rina Pich', email: 'rina.pich@gov.kh', deptIdx: 0 },
-      { username: 'vuth.leak', fullName: 'Vuth Leak', email: 'vuth.leak@gov.kh', deptIdx: 1 },
-      { username: 'srey.mom', fullName: 'Srey Mom', email: 'srey.mom@gov.kh', deptIdx: 2 },
-      { username: 'kosal.dim', fullName: 'Kosal Dim', email: 'kosal.dim@gov.kh', deptIdx: 4 },
-      { username: 'pisey.tan', fullName: 'Pisey Tan', email: 'pisey.tan@gov.kh', deptIdx: 0 },
-      { username: 'bora.nuth', fullName: 'Bora Nuth', email: 'bora.nuth@gov.kh', deptIdx: 1 },
-      { username: 'sreyroth.ly', fullName: 'Sreyroth Ly', email: 'sreyroth.ly@gov.kh', deptIdx: 3 },
-      { username: 'makara.hen', fullName: 'Makara Hen', email: 'makara.hen@gov.kh', deptIdx: 2 },
-      { username: 'sophea.ros', fullName: 'Sophea Ros', email: 'sophea.ros@gov.kh', deptIdx: 4 },
-      { username: 'virak.heng', fullName: 'Virak Heng', email: 'virak.heng@gov.kh', deptIdx: 0 },
-      { username: 'channary.im', fullName: 'Channary Im', email: 'channary.im@gov.kh', deptIdx: 1 },
-    ].map((p) =>
-      prisma.user.upsert({
+      { username: 'chan.mony', fullName: 'Chan Mony', fullNameKh: 'ចាន់ មុនី', gender: Gender.FEMALE, email: 'chan.mony@gov.kh', deptIdx: 3 },
+      { username: 'rina.pich', fullName: 'Rina Pich', fullNameKh: 'ពេជ្រ រីណា', gender: Gender.FEMALE, email: 'rina.pich@gov.kh', deptIdx: 0 },
+      { username: 'vuth.leak', fullName: 'Vuth Leak', fullNameKh: 'វុធ លក្ខណ៍', gender: Gender.MALE, email: 'vuth.leak@gov.kh', deptIdx: 1 },
+      { username: 'srey.mom', fullName: 'Srey Mom', fullNameKh: 'ស្រី មុំ', gender: Gender.FEMALE, email: 'srey.mom@gov.kh', deptIdx: 2 },
+      { username: 'kosal.dim', fullName: 'Kosal Dim', fullNameKh: 'ឌីម កុសល', gender: Gender.MALE, email: 'kosal.dim@gov.kh', deptIdx: 4 },
+      { username: 'pisey.tan', fullName: 'Pisey Tan', fullNameKh: 'តាន់ ពិសី', gender: Gender.FEMALE, email: 'pisey.tan@gov.kh', deptIdx: 0 },
+      { username: 'bora.nuth', fullName: 'Bora Nuth', fullNameKh: 'នុត បូរ៉ា', gender: Gender.MALE, email: 'bora.nuth@gov.kh', deptIdx: 1 },
+      { username: 'sreyroth.ly', fullName: 'Sreyroth Ly', fullNameKh: 'លី ស្រីរ័ត្ន', gender: Gender.FEMALE, email: 'sreyroth.ly@gov.kh', deptIdx: 3 },
+      { username: 'makara.hen', fullName: 'Makara Hen', fullNameKh: 'ហេន មករា', gender: Gender.MALE, email: 'makara.hen@gov.kh', deptIdx: 2 },
+      { username: 'sophea.ros', fullName: 'Sophea Ros', fullNameKh: 'រស់ សុភា', gender: Gender.FEMALE, email: 'sophea.ros@gov.kh', deptIdx: 4 },
+      { username: 'virak.heng', fullName: 'Virak Heng', fullNameKh: 'ហេង វីរៈ', gender: Gender.MALE, email: 'virak.heng@gov.kh', deptIdx: 0 },
+      { username: 'channary.im', fullName: 'Channary Im', fullNameKh: 'អ៊ឹម ចាន់ណារី', gender: Gender.FEMALE, email: 'channary.im@gov.kh', deptIdx: 1 },
+    ].map((p, i) => {
+      // Demo intake details, as the public registration form collects them.
+      const profile = {
+        fullNameKh: p.fullNameKh,
+        gender: p.gender,
+        phoneNumber: `012 ${String(300100 + i * 7).padStart(6, '0')}`,
+        currentRole: ['Officer', 'Deputy Chief of Office', 'Chief of Office', 'Technical Officer'][i % 4],
+        generalDepartment: ['General Department of Trade Promotion', 'General Department of Domestic Trade'][i % 2],
+        departmentOffice: ['Phnom Penh Municipal Department of Commerce', 'Siem Reap Provincial Department of Commerce', 'Department of Export-Import'][i % 3],
+      };
+      return prisma.user.upsert({
         where: { username: p.username },
-        update: { passwordHash: DEMO_PASSWORD_HASH },
+        update: { passwordHash: DEMO_PASSWORD_HASH, ...profile },
         create: {
           username: p.username,
           email: p.email,
@@ -165,19 +174,34 @@ async function main() {
           fullName: p.fullName,
           role: Role.PARTICIPANT,
           departmentId: departments[p.deptIdx].id,
+          ...profile,
         },
-      }),
-    ),
+      });
+    }),
   );
   console.log(`  ✓ ${1 + trainers.length + participants.length} users`);
+
+  // ── Training Categories ──────────────────────────────────────────────────────
+  const categoryDefs = [
+    { name: 'Leadership', nameKh: 'ភាពជាអ្នកដឹកនាំ' },
+    { name: 'Technology', nameKh: 'បច្ចេកវិទ្យា' },
+    { name: 'Management', nameKh: 'ការគ្រប់គ្រង' },
+    { name: 'Communication', nameKh: 'ការប្រាស្រ័យទាក់ទង' },
+    { name: 'Finance', nameKh: 'ហិរញ្ញវត្ថុ' },
+  ];
+  for (const c of categoryDefs) {
+    await prisma.trainingCategory.upsert({ where: { name: c.name }, update: { nameKh: c.nameKh }, create: c });
+  }
+  console.log(`  ✓ ${categoryDefs.length} training categories`);
 
   // ── Training Programs ────────────────────────────────────────────────────────
   const programs = await Promise.all([
     prisma.trainingProgram.upsert({
       where: { code: 'LDP-01' },
-      update: {},
+      update: { titleKh: 'កម្មវិធីអភិវឌ្ឍភាពជាអ្នកដឹកនាំ' },
       create: {
         code: 'LDP-01',
+        titleKh: 'កម្មវិធីអភិវឌ្ឍភាពជាអ្នកដឹកនាំ',
         title: 'Leadership Development Program',
         description: 'Develop essential leadership and management skills for mid-level officials.',
         category: 'Leadership',
@@ -186,9 +210,10 @@ async function main() {
     }),
     prisma.trainingProgram.upsert({
       where: { code: 'DSW-02' },
-      update: {},
+      update: { titleKh: 'សិក្ខាសាលាជំនាញឌីជីថល' },
       create: {
         code: 'DSW-02',
+        titleKh: 'សិក្ខាសាលាជំនាញឌីជីថល',
         title: 'Digital Skills Workshop',
         description: 'Practical training on digital tools, data literacy, and cybersecurity basics.',
         category: 'Technology',
@@ -197,9 +222,10 @@ async function main() {
     }),
     prisma.trainingProgram.upsert({
       where: { code: 'PMF-03' },
-      update: {},
+      update: { titleKh: 'មូលដ្ឋានគ្រឹះនៃការគ្រប់គ្រងគម្រោង' },
       create: {
         code: 'PMF-03',
+        titleKh: 'មូលដ្ឋានគ្រឹះនៃការគ្រប់គ្រងគម្រោង',
         title: 'Project Management Fundamentals',
         description: 'Foundations of project planning, execution, and monitoring using modern frameworks.',
         category: 'Management',
@@ -208,9 +234,10 @@ async function main() {
     }),
     prisma.trainingProgram.upsert({
       where: { code: 'PSC-04' },
-      update: {},
+      update: { titleKh: 'ការនិយាយជាសាធារណៈ និងការប្រាស្រ័យទាក់ទង' },
       create: {
         code: 'PSC-04',
+        titleKh: 'ការនិយាយជាសាធារណៈ និងការប្រាស្រ័យទាក់ទង',
         title: 'Public Speaking & Communication',
         description: 'Enhance oral presentation, writing, and stakeholder communication skills.',
         category: 'Communication',
@@ -219,9 +246,10 @@ async function main() {
     }),
     prisma.trainingProgram.upsert({
       where: { code: 'FMB-05' },
-      update: {},
+      update: { titleKh: 'មូលដ្ឋានគ្រឹះនៃការគ្រប់គ្រងហិរញ្ញវត្ថុ' },
       create: {
         code: 'FMB-05',
+        titleKh: 'មូលដ្ឋានគ្រឹះនៃការគ្រប់គ្រងហិរញ្ញវត្ថុ',
         title: 'Financial Management Basics',
         description: 'Budgeting, expenditure tracking, and public finance regulations.',
         category: 'Finance',
@@ -235,18 +263,22 @@ async function main() {
   const d = (y: number, m: number, day: number) => new Date(y, m - 1, day);
 
   async function seedSession(data: {
-    programId: string; title: string; venue: string; startDate: Date; endDate: Date;
+    programId: string; title: string; titleKh: string; venue: string; startDate: Date; endDate: Date;
     maxCapacity: number; status: SessionStatus;
   }) {
     const existing = await prisma.trainingSession.findFirst({ where: { title: data.title, programId: data.programId } });
-    if (existing) return existing;
+    if (existing) {
+      return existing.titleKh
+        ? existing
+        : prisma.trainingSession.update({ where: { id: existing.id }, data: { titleKh: data.titleKh } });
+    }
     return prisma.trainingSession.create({ data });
   }
 
   const sessions = [
     await seedSession({
       programId: programs[0].id,
-      title: 'Leadership Development – Batch 1',
+      title: 'Leadership Development – Batch 1', titleKh: 'ការអភិវឌ្ឍភាពជាអ្នកដឹកនាំ – វគ្គទី១',
       venue: 'TTRI Conference Hall A',
       startDate: d(2026, 5, 20),
       endDate: d(2026, 5, 24),
@@ -255,7 +287,7 @@ async function main() {
     }),
     await seedSession({
       programId: programs[1].id,
-      title: 'Digital Skills Workshop – June',
+      title: 'Digital Skills Workshop – June', titleKh: 'សិក្ខាសាលាជំនាញឌីជីថល – ខែមិថុនា',
       venue: 'TTRI Computer Lab',
       startDate: d(2026, 6, 10),
       endDate: d(2026, 6, 12),
@@ -264,7 +296,7 @@ async function main() {
     }),
     await seedSession({
       programId: programs[2].id,
-      title: 'Project Management – July Cohort',
+      title: 'Project Management – July Cohort', titleKh: 'ការគ្រប់គ្រងគម្រោង – ក្រុមខែកក្កដា',
       venue: 'TTRI Training Room B',
       startDate: d(2026, 6, 30),
       endDate: d(2026, 7, 3),
@@ -273,7 +305,7 @@ async function main() {
     }),
     await seedSession({
       programId: programs[3].id,
-      title: 'Public Speaking Intensive – July',
+      title: 'Public Speaking Intensive – July', titleKh: 'វគ្គខ្លីការនិយាយជាសាធារណៈ – ខែកក្កដា',
       venue: 'TTRI Auditorium',
       startDate: d(2026, 7, 10),
       endDate: d(2026, 7, 11),
@@ -282,7 +314,7 @@ async function main() {
     }),
     await seedSession({
       programId: programs[4].id,
-      title: 'Financial Management – August',
+      title: 'Financial Management – August', titleKh: 'ការគ្រប់គ្រងហិរញ្ញវត្ថុ – ខែសីហា',
       venue: 'TTRI Training Room A',
       startDate: d(2026, 8, 4),
       endDate: d(2026, 8, 6),
@@ -291,7 +323,7 @@ async function main() {
     }),
     await seedSession({
       programId: programs[0].id,
-      title: 'Leadership Development – Batch 2',
+      title: 'Leadership Development – Batch 2', titleKh: 'ការអភិវឌ្ឍភាពជាអ្នកដឹកនាំ – វគ្គទី២',
       venue: 'TTRI Conference Hall A',
       startDate: d(2026, 8, 17),
       endDate: d(2026, 8, 21),

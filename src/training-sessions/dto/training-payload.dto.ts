@@ -142,10 +142,9 @@ export class SurveyQuestionDto {
 }
 
 export class CreateTrainingDto {
-  @ApiProperty({ example: 'PRG-001' })
-  @IsString()
-  @IsNotEmpty()
-  programCode!: string;
+  // No longer accepted from the client: the program code is always
+  // generated server-side (see lib/program-code.ts) so it can be read-only
+  // in the UI and never collides under concurrent submissions.
 
   @ApiProperty({ example: 'General' })
   @IsString()

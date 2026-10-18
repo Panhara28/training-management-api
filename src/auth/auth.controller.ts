@@ -15,6 +15,7 @@ import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from '../lib/portal-session';
 import {
   createPkceChallenge,
   getMocOAuthClient,
+  isMocOAuthEnabled,
   PKCE_COOKIE,
   PKCE_COOKIE_PATH,
   PKCE_TTL_SECONDS,
@@ -52,6 +53,13 @@ export class AuthController {
     res.cookie(REFRESH_COOKIE, refreshToken, this.cookieOptions(REFRESH_TTL_SECONDS));
 
     return user;
+  }
+
+  @Get('moc-oauth/status')
+  @ApiOperation({ summary: 'Whether AAS sign-in is configured and enabled on this deployment' })
+  @ApiOkResponse({ description: '{ enabled }' })
+  mocOauthStatus() {
+    return { enabled: isMocOAuthEnabled() };
   }
 
   // AAS login, step 1 — the browser navigates here directly (not fetch) and

@@ -3,15 +3,15 @@ import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateProgramDto {
-  @ApiProperty({ example: 'PRG-001' })
-  @IsString()
-  @IsNotEmpty()
-  code!: string;
-
   @ApiProperty({ example: 'Sample Training Program' })
   @IsString()
   @IsNotEmpty()
   title!: string;
+
+  @ApiPropertyOptional({ example: 'កម្មវិធីគំរូ' })
+  @IsOptional()
+  @IsString()
+  titleKh?: string;
 
   @ApiPropertyOptional({ example: 'Program description' })
   @IsOptional()

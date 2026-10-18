@@ -17,6 +17,11 @@ CREATE TABLE `TrainingCategory` (
 
 -- Backfill: every distinct category already used by a TrainingProgram becomes
 -- a selectable category row, so existing programs keep a matching option.
+-- De-duplicate in a subquery first: DISTINCT next to UUID() would keep every
+-- row, since each UUID() is different.
 INSERT INTO `TrainingCategory` (`id`, `name`, `nameKh`)
-SELECT DISTINCT UUID(), `category`, NULL FROM `TrainingProgram`
-WHERE `category` IS NOT NULL AND `category` <> '';
+SELECT UUID(), `c`.`category`, NULL
+FROM (
+    SELECT DISTINCT `category` FROM `TrainingProgram`
+    WHERE `category` IS NOT NULL AND `category` <> ''
+) AS `c`;
